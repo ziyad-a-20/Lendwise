@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Wishlist — LendWise{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-heading">
+    <div class="page-eyebrow"><i class="ti ti-heart"></i> Saved</div>
+    <h1 class="page-title">My Wishlist</h1>
+  </div>
+</div>
+
+{% if books %}
+<div class="table-shell">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Book</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>Added</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in books %}
+        <tr id="wrow-{{ book.id }}">
+          <td>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="cover-wrap">
+                {% if book._cover %}
+                <img src="{{ book._cover }}"
+                     alt="{{ book.book_name }}"
+                     class="book-cover-img"
+                     loading="lazy"
+                     decoding="async"
+                     onerror="
+                       this.style.display='none';
+                       this.nextElementSibling.style.display='flex';">
+                <div class="book-cover-block"
+                     data-ci="{{ loop.index0 % 10 }}"
+                     style="display:none;">
+                  {{ book.book_name[0].upper() }}
+                </div>
+                {% else %}
+                <div class="book-cover-block"
+                     data-ci="{{ loop.index0 % 10 }}">
+                  {{ book.book_name[0].upper() }}
+                </div>
+                {% endif %}
+              </div>
+              <div>
+                <div class="book-cell-name">{{ book.book_name }}</div>
+                <div class="book-cell-meta">{{ book.author_name }}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="tag">{{ book.category }}</span></td>
+          <td>
+            {% if book.status == 'Available' %}
+            <span class="status status-available">
+              <span class="status-dot"></span> Available
+            </span>
+            {% else %}
+            <span class="status status-borrowed">
+              <span class="status-dot"></span> On Loan
+            </span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.78rem;color:var(--c-text-3);">
+            {{ book.wished_at.strftime('%d %b %Y')
+               if book.wished_at else '—' }}
+          </td>
+          <td>
+            <div class="row-actions">
+              {% if book.status == 'Available' %}
+              <a href="{{ url_for('borrow', id=book.id) }}"
+                 class="btn btn-success btn-sm">
+                <i class="ti ti-arrow-down"></i> Borrow
+              </a>
+              {% endif %}
+              <button type="button"
+                      class="btn btn-danger btn-sm wishlist-remove-btn"
+                      data-id="{{ book.id }}">
+                <i class="ti ti-heart-broken"></i> Remove
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state" style="padding:72px 32px;">
+  <div class="empty-icon-wrap"
+       style="background:rgba(240,92,110,0.08);
+              border-color:rgba(240,92,110,0.2);">
+    <i class="ti ti-heart"
+       style="color:var(--c-ruby);font-size:26px;"></i>
+  </div>
+  <h3>Your wishlist is empty</h3>
+  <p>Tap the ♡ heart on any book in the catalogue to save it here.</p>
+  <a href="{{ url_for('home') }}" class="btn btn-primary"
+     style="margin-top:16px;">
+    <i class="ti ti-books"></i> Browse Catalogue
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.wishlist-remove-btn').forEach(function (btn) {
+  btn.addEventListener('click', async function (e) {
+    e.preventDefault();
+    var id  = this.dataset.id;
+    var row = document.getElementById('wrow-' + id);
+
+    if (row) {
+      row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+      row.style.opacity    = '0';
+      row.style.transform  = 'translateX(16px)';
+    }
+
+    try {
+      var res = await fetch('/wishlist/remove/' + id, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken':      getCsrf(),
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept':           'application/json'
+        }
+      });
+      var data = await res.json();
+      if (data.ok) {
+        setTimeout(function () {
+          if (row) row.remove();
+          var remaining = document.querySelectorAll(
+            '.wishlist-remove-btn');
+          if (remaining.length === 0) location.reload();
+        }, 320);
+      } else {
+        if (row) {
+          row.style.opacity   = '1';
+          row.style.transform = 'none';
+        }
+      }
+    } catch (err) {
+      if (row) {
+        row.style.opacity   = '1';
+        row.style.transform = 'none';
+      }
+      console.error('Remove error:', err);
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Edit Book — LendWise{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="back-row">
+    <a href="{{ url_for('home') }}" class="btn btn-ghost btn-sm">
+      <i class="ti ti-arrow-left"></i> Back to catalogue
+    </a>
+  </div>
+  <div class="form-card">
+    <div class="form-card-eyebrow"><i class="ti ti-pencil"></i> Editing</div>
+    <div class="form-card-title">Update Book</div>
+
+    <form method="POST" id="update-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field">
+        <label class="field-label" for="name">Book Title *</label>
+        <input class="field-input" type="text" id="name" name="name"
+               value="{{ book.book_name }}" required>
+      </div>
+      <div class="field">
+        <label class="field-label" for="author">Author *</label>
+        <input class="field-input" type="text" id="author" name="author"
+               value="{{ book.author_name }}" required>
+      </div>
+      <div class="field">
+        <label class="field-label" for="category">Category *</label>
+        <input class="field-input" type="text" id="category" name="category"
+               value="{{ book.category }}" list="cat-list" required>
+        <datalist id="cat-list">
+          {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+        </datalist>
+      </div>
+      <div class="field-grid-2">
+        <div class="field">
+          <label class="field-label" for="isbn">ISBN</label>
+          <input class="field-input" type="text" id="isbn" name="isbn"
+                 value="{{ book.isbn or '' }}" placeholder="978-…">
+        </div>
+        <div class="field">
+          <label class="field-label" for="year">Year</label>
+          <input class="field-input" type="text" id="year" name="year"
+                 value="{{ book.year or '' }}" placeholder="2024" maxlength="4">
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="cover_url">
+          Cover Image URL
+          <span style="font-weight:400;text-transform:none;
+            letter-spacing:0;color:var(--c-text-3)">(optional)</span>
+        </label>
+        <input class="field-input" type="url" id="cover_url" name="cover_url"
+               value="{{ book.cover_url or '' }}"
+               placeholder="https://…/cover.jpg">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="update-submit-btn">
+          <i class="ti ti-device-floppy"></i> Save Changes
+        </button>
+        <a href="{{ url_for('home') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>lockFormOnSubmit('update-form','update-submit-btn');</script>{% endblock %}

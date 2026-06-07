@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Borrow Book — LendWise{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="back-row">
+    <a href="{{ url_for('home') }}" class="btn btn-ghost btn-sm">
+      <i class="ti ti-arrow-left"></i> Back to catalogue
+    </a>
+  </div>
+  <div class="form-card">
+    <div class="form-card-eyebrow"><i class="ti ti-arrow-down"></i> Borrowing</div>
+    <div class="form-card-title">Borrow a Book</div>
+
+    <div class="book-preview">
+      <div class="book-preview-icon"><i class="ti ti-book"></i></div>
+      <div>
+        <div class="book-preview-name">{{ book.book_name }}</div>
+        <div class="book-preview-author">
+          {{ book.author_name }}{% if book.category %} · {{ book.category }}{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="notice notice-amber">
+      <i class="ti ti-calendar-time"></i>
+      This book must be returned within <strong>{{ borrow_days }} days</strong> of borrowing.
+    </div>
+
+    <form method="POST" id="borrow-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="borrow-submit-btn">
+          <i class="ti ti-arrow-down"></i> Confirm Borrow
+        </button>
+        <a href="{{ url_for('home') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>lockFormOnSubmit('borrow-form','borrow-submit-btn');</script>{% endblock %}

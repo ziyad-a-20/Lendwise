@@ -1,0 +1,85 @@
+{% from 'macros/flash.html'     import render_flashes %}
+{% from 'macros/nav_links.html' import nav_links %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}LendWise{% endblock %}</title>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+</head>
+<body>
+
+  <canvas id="page-canvas"></canvas>
+  <div class="page-wash"></div>
+  <div class="page-rules"></div>
+  <div class="page-rings">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <div class="ring ring-4"></div>
+    <div class="ring ring-5"></div>
+  </div>
+
+  {{ render_flashes() }}
+  <div class="nav-backdrop" id="nav-backdrop" onclick="closeDrawer()"></div>
+
+  <nav class="navbar">
+    <a href="{{ url_for('home') }}" class="navbar-brand">
+      <div class="brand-mark"><i class="ti ti-books"></i></div>
+      <div class="brand-wordmark">
+        <span class="brand-name">LendWise</span>
+        <span class="brand-tagline">Library System</span>
+      </div>
+    </a>
+
+    {% if session.get('username') %}
+    <div class="navbar-center">{{ nav_links() }}</div>
+    <div class="navbar-right">
+      <div class="nav-user-pill">
+        <div class="nav-avatar">{{ session['username'][0].upper() }}</div>
+        <div class="nav-user-info">
+          <span class="nav-username">{{ session['username'] }}</span>
+          <span class="nav-role {{ session.get('role') }}">{{ session.get('role') }}</span>
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="btn btn-logout">
+        <i class="ti ti-logout"></i> Logout
+      </a>
+      <button class="nav-mobile-toggle" onclick="toggleDrawer()"
+              aria-label="Open navigation menu">
+        <i class="ti ti-menu-2" id="hamburger-icon"></i>
+      </button>
+    </div>
+
+    <div class="nav-drawer" id="nav-drawer">
+      <div class="drawer-links">{{ nav_links(drawer=true) }}</div>
+      <div class="drawer-divider"></div>
+      <div class="drawer-footer">
+        <div class="drawer-user">
+          <div class="nav-avatar">{{ session['username'][0].upper() }}</div>
+          <div>
+            <div class="drawer-username">{{ session['username'] }}</div>
+            <div class="drawer-role {{ session.get('role') }}">{{ session.get('role') }}</div>
+          </div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm">
+          <i class="ti ti-logout"></i> Logout
+        </a>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="navbar-right"></div>
+    {% endif %}
+  </nav>
+
+  <div class="page">{% block content %}{% endblock %}</div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/page-particles.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

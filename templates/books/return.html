@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Return Book — LendWise{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="back-row">
+    <a href="{{ url_for('home') }}" class="btn btn-ghost btn-sm">
+      <i class="ti ti-arrow-left"></i> Back to catalogue
+    </a>
+  </div>
+  <div class="form-card">
+    <div class="form-card-eyebrow"><i class="ti ti-arrow-up"></i> Returning</div>
+    <div class="form-card-title">Return a Book</div>
+
+    <div class="book-preview">
+      <div class="book-preview-icon"><i class="ti ti-book"></i></div>
+      <div>
+        <div class="book-preview-name">{{ book.book_name }}</div>
+        <div class="book-preview-author">
+          {{ book.author_name }}{% if book.category %} · {{ book.category }}{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if fine > 0 %}
+    <div class="notice notice-amber">
+      <i class="ti ti-currency-rupee"></i>
+      This book is overdue. An outstanding fine of
+      <strong>₹{{ fine }}</strong> will be recorded.
+      Please pay at the library desk.
+    </div>
+    {% endif %}
+
+    <form method="POST" id="return-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-actions">
+        <button type="submit" class="btn btn-success" id="return-submit-btn">
+          <i class="ti ti-arrow-up"></i> Confirm Return
+        </button>
+        <a href="{{ url_for('home') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>lockFormOnSubmit('return-form','return-submit-btn');</script>{% endblock %}

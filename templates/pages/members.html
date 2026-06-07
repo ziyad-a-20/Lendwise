@@ -1,0 +1,93 @@
+{% from 'macros/pagination.html' import paginate %}
+{% extends "base.html" %}
+{% block title %}Members — LendWise{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-heading">
+    <div class="page-eyebrow">Admin</div>
+    <h1 class="page-title">Members</h1>
+  </div>
+</div>
+
+<div class="table-shell">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Member</th>
+          <th>Role</th>
+          <th>Email</th>
+          <th>Last Login</th>
+          <th>History</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>#{{ user.id }}</td>
+          <td>
+            <span class="member-avatar">
+              {{ user.username[0].upper() }}
+            </span>
+            {{ user.username }}
+          </td>
+          <td>
+            {% if user.role == 'admin' %}
+            <span class="badge-role badge-admin">
+              <i class="ti ti-shield"></i> Admin
+            </span>
+            {% else %}
+            <span class="badge-role badge-member">
+              <i class="ti ti-user"></i> Member
+            </span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.78rem;color:var(--c-text-3);">
+            {% if user.email %}
+              {{ user.email | replace('@', '***@') }}
+            {% else %}
+              <span style="font-style:italic;
+                           color:var(--c-text-3);">No email</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.82rem;color:var(--c-text-3);">
+            {% if user.last_login %}
+            <i class="ti ti-clock"
+               style="font-size:13px;margin-right:4px;
+                      vertical-align:-1px;"></i>
+            {{ user.last_login }}
+            {% else %}Never{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('export_member_history_pdf',
+                        username=user.username) }}"
+               class="btn btn-ghost btn-sm"
+               title="Export {{ user.username }}'s history">
+              <i class="ti ti-file-type-pdf"></i> PDF
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if users | length == 0 %}
+        <tr>
+          <td colspan="6">
+            <div class="empty-state empty-state-members">
+              <div class="empty-icon-wrap">
+                <i class="ti ti-user-search"></i>
+              </div>
+              <h3>No members yet</h3>
+              <p>Registered users will appear here once they sign up.</p>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ paginate(page, total_pages, url_for('members')) }}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% macro render_flashes() %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-stack">
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}" onclick="dismiss(this)">
+      {% if category == 'success' %}<i class="ti ti-circle-check"></i>
+      {% elif category == 'danger'  %}<i class="ti ti-circle-x"></i>
+      {% elif category == 'warning' %}<i class="ti ti-alert-triangle"></i>
+      {% else %}<i class="ti ti-info-circle"></i>{% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+{% endmacro %}

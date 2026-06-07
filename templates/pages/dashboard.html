@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — LendWise{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-heading">
+    <div class="page-eyebrow">Admin</div>
+    <h1 class="page-title">Dashboard</h1>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('export_catalogue', fmt='csv') }}"
+       class="btn btn-ghost btn-sm">
+      <i class="ti ti-download"></i> Export CSV
+    </a>
+    <a href="{{ url_for('export_catalogue', fmt='pdf') }}"
+       class="btn btn-ghost btn-sm">
+      <i class="ti ti-file-type-pdf"></i> Export PDF
+    </a>
+  </div>
+</div>
+
+<div class="stats-grid stats-grid-4" style="margin-bottom:20px;">
+  <div class="stat-card stat-accent">
+    <div class="stat-icon-wrap"><i class="ti ti-books"></i></div>
+    <div class="stat-value">{{ stats.total }}</div>
+    <div class="stat-label">Total Books</div>
+  </div>
+  <div class="stat-card stat-emerald">
+    <div class="stat-icon-wrap"><i class="ti ti-circle-check"></i></div>
+    <div class="stat-value">{{ stats.available }}</div>
+    <div class="stat-label">Available</div>
+  </div>
+  <div class="stat-card stat-ruby">
+    <div class="stat-icon-wrap"><i class="ti ti-arrow-up-right"></i></div>
+    <div class="stat-value">{{ stats.borrowed }}</div>
+    <div class="stat-label">On Loan</div>
+  </div>
+  <div class="stat-card stat-ruby-soft">
+    <div class="stat-icon-wrap"><i class="ti ti-alert-circle"></i></div>
+    <div class="stat-value">{{ stats.overdue }}</div>
+    <div class="stat-label">Overdue</div>
+  </div>
+</div>
+
+<div class="stats-grid stats-grid-4" style="margin-bottom:36px;">
+  <div class="stat-card stat-sapphire">
+    <div class="stat-icon-wrap"><i class="ti ti-users"></i></div>
+    <div class="stat-value">{{ stats.members }}</div>
+    <div class="stat-label">Members</div>
+  </div>
+  <div class="stat-card stat-amber">
+    <div class="stat-icon-wrap"><i class="ti ti-history"></i></div>
+    <div class="stat-value">{{ stats.total_borrows }}</div>
+    <div class="stat-label">Total Borrows</div>
+  </div>
+  <div class="stat-card stat-emerald-soft">
+    <div class="stat-icon-wrap"><i class="ti ti-refresh"></i></div>
+    <div class="stat-value">{{ stats.total_returns }}</div>
+    <div class="stat-label">Total Returns</div>
+  </div>
+  <div class="stat-card stat-ruby">
+    <div class="stat-icon-wrap">
+      <i class="ti ti-currency-rupee"></i>
+    </div>
+    <div class="stat-value">₹{{ stats.total_fines }}</div>
+    <div class="stat-label">Unpaid Fines</div>
+  </div>
+</div>
+
+<div class="dash-grid-2">
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Activity Trend</span>
+      <span class="dash-card-sub">Last 6 months</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Top Categories</span>
+      <span class="dash-card-sub">By borrow count</span>
+    </div>
+    <div class="chart-container">
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="dash-grid-2">
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Most Borrowed</span>
+      <span class="dash-card-sub">All time</span>
+    </div>
+    {% for book in top_books %}
+    <div class="dash-row">
+      <div>
+        <div style="font-size:0.82rem;font-weight:600;
+                    color:var(--c-text-1);">{{ book.book_name }}</div>
+        <div style="font-size:0.72rem;color:var(--c-text-3);
+                    font-style:italic;">{{ book.author_name }}</div>
+      </div>
+      <div class="dash-row-count">{{ book.count }}</div>
+    </div>
+    {% else %}
+    <p style="color:var(--c-text-3);font-size:0.82rem;padding:20px 0;">
+      No data yet.
+    </p>
+    {% endfor %}
+  </div>
+
+  <div class="dash-card">
+    <div class="dash-card-header">
+      <span class="dash-card-title">Top Members</span>
+      <span class="dash-card-sub">By borrow count</span>
+    </div>
+    {% for m in top_borrowers %}
+    <div class="dash-row">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="member-avatar">{{ m.borrower_name[0].upper() }}</div>
+        <div>
+          <span style="font-size:0.875rem;color:var(--c-text-1);">
+            {{ m.borrower_name }}
+          </span>
+          <div>
+            <a href="{{ url_for('export_member_history_pdf', username=m.borrower_name) }}"
+               class="btn btn-ghost btn-sm"
+               style="padding:3px 8px;font-size:0.68rem;margin-top:3px;"
+               title="Export {{ m.borrower_name }}'s history PDF">
+              <i class="ti ti-file-type-pdf"></i> History
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="dash-row-count">{{ m.count }}</div>
+    </div>
+    {% else %}
+    <p style="color:var(--c-text-3);font-size:0.82rem;padding:20px 0;">
+      No data yet.
+    </p>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="dash-card" style="margin-bottom:0;">
+  <div class="dash-card-header">
+    <span class="dash-card-title">Recent Activity</span>
+    <a href="{{ url_for('activity') }}" class="btn btn-ghost btn-sm">
+      View all <i class="ti ti-arrow-right"></i>
+    </a>
+  </div>
+  {% for log in recent_activity %}
+  <div class="dash-row">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="activity-icon
+           activity-{{ log.action | lower | replace('_','-') }}">
+        {% if 'LOGIN'  in log.action %}<i class="ti ti-login"></i>
+        {% elif 'BORROW' in log.action %}<i class="ti ti-arrow-down"></i>
+        {% elif 'RETURN' in log.action %}<i class="ti ti-arrow-up"></i>
+        {% elif 'RENEW'  in log.action %}<i class="ti ti-refresh"></i>
+        {% elif 'ADD'    in log.action %}<i class="ti ti-plus"></i>
+        {% elif 'DELETE' in log.action %}<i class="ti ti-trash"></i>
+        {% elif 'EXPORT' in log.action %}<i class="ti ti-download"></i>
+        {% else %}<i class="ti ti-activity"></i>{% endif %}
+      </div>
+      <div>
+        <div style="font-size:0.82rem;color:var(--c-text-1);
+                    font-weight:500;">
+          <span style="color:var(--c-accent);">{{ log.username }}</span>
+          — {{ log.detail }}
+        </div>
+        <div style="font-size:0.72rem;color:var(--c-text-3);">
+          {{ log.created_at }}
+        </div>
+      </div>
+    </div>
+    <span class="action-badge
+         action-{{ log.action | lower | replace('_','-') }}">
+      {{ log.action }}
+    </span>
+  </div>
+  {% else %}
+  <p style="color:var(--c-text-3);font-size:0.82rem;padding:20px 0;">
+    No activity yet.
+  </p>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="data-borrows">
+  {{ borrows_monthly | tojson }}
+</script>
+<script type="application/json" id="data-returns">
+  {{ returns_monthly | tojson }}
+</script>
+<script type="application/json" id="data-categories">
+  {{ top_categories | tojson }}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+  var trendEl    = document.getElementById('trendChart');
+  var categoryEl = document.getElementById('categoryChart');
+  if (!trendEl || !categoryEl) return;
+
+  var borrowsRaw    = JSON.parse(
+    document.getElementById('data-borrows').textContent);
+  var returnsRaw    = JSON.parse(
+    document.getElementById('data-returns').textContent);
+  var categoriesRaw = JSON.parse(
+    document.getElementById('data-categories').textContent);
+
+  Chart.defaults.color       = '#8c8880';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  Chart.defaults.font.family = "'Cabinet Grotesk','DM Sans',sans-serif";
+  Chart.defaults.font.size   = 11;
+
+  var borrowLabels = borrowsRaw.map(function(r){ return r.month; });
+  var borrowCounts = borrowsRaw.map(function(r){ return r.count; });
+  var returnLabels = returnsRaw.map(function(r){ return r.month; });
+  var returnCounts = returnsRaw.map(function(r){ return r.count; });
+
+  var allMonths = [];
+  borrowLabels.concat(returnLabels).forEach(function(m) {
+    if (allMonths.indexOf(m) === -1) allMonths.push(m);
+  });
+  var bData = allMonths.map(function(m) {
+    var i = borrowLabels.indexOf(m); return i >= 0 ? borrowCounts[i] : 0;
+  });
+  var rData = allMonths.map(function(m) {
+    var i = returnLabels.indexOf(m); return i >= 0 ? returnCounts[i] : 0;
+  });
+
+  new Chart(trendEl, {
+    type: 'line',
+    data: {
+      labels: allMonths.length ? allMonths : ['No data'],
+      datasets: [
+        { label:'Borrowed', data: bData.length?bData:[0],
+          borderColor:'#c8bfa8', backgroundColor:'rgba(200,191,168,0.08)',
+          tension:0.4, fill:true, pointBackgroundColor:'#c8bfa8',
+          pointRadius:4, pointHoverRadius:6, borderWidth:2 },
+        { label:'Returned', data: rData.length?rData:[0],
+          borderColor:'#34d3a0', backgroundColor:'rgba(52,211,160,0.06)',
+          tension:0.4, fill:true, pointBackgroundColor:'#34d3a0',
+          pointRadius:4, pointHoverRadius:6, borderWidth:2 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      animation:{duration:600},
+      plugins:{
+        legend:{position:'top',labels:{boxWidth:10,padding:14}},
+        tooltip:{backgroundColor:'rgba(14,14,24,0.95)',
+          borderColor:'rgba(200,191,168,0.2)',borderWidth:1,
+          padding:10,cornerRadius:8}
+      },
+      scales:{
+        y:{beginAtZero:true,ticks:{stepSize:1,precision:0},
+           grid:{color:'rgba(255,255,255,0.04)'}},
+        x:{grid:{color:'rgba(255,255,255,0.04)'}}
+      }
+    }
+  });
+
+  var catLabels = categoriesRaw.map(function(r){ return r.category; });
+  var catCounts = categoriesRaw.map(function(r){ return r.count; });
+
+  new Chart(categoryEl, {
+    type:'doughnut',
+    data:{
+      labels: catLabels.length?catLabels:['No data'],
+      datasets:[{
+        data: catCounts.length?catCounts:[1],
+        backgroundColor:[
+          'rgba(200,191,168,0.8)','rgba(52,211,160,0.75)',
+          'rgba(92,142,245,0.75)','rgba(245,166,35,0.75)',
+          'rgba(240,92,110,0.75)','rgba(200,191,168,0.45)'
+        ],
+        borderColor:'rgba(14,14,24,0.8)',borderWidth:2,hoverOffset:5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      animation:{duration:600}, cutout:'62%',
+      plugins:{
+        legend:{position:'right',labels:{boxWidth:10,padding:12,
+          font:{size:11}}},
+        tooltip:{backgroundColor:'rgba(14,14,24,0.95)',
+          borderColor:'rgba(200,191,168,0.2)',borderWidth:1,
+          padding:10,cornerRadius:8}
+      }
+    }
+  });
+})();
+</script>
+{% endblock %}

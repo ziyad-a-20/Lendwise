@@ -1,0 +1,204 @@
+{% from 'macros/pagination.html' import paginate %}
+{% extends "base.html" %}
+{% block title %}History — LendWise{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div class="page-heading">
+    <div class="page-eyebrow">Records</div>
+    <h1 class="page-title">
+      {% if session.get('role') == 'admin' %}All Transactions
+      {% else %}My History{% endif %}
+    </h1>
+  </div>
+  {% if session.get('role') == 'public' %}
+  <div class="page-actions">
+    <a href="{{ url_for('export_my_history_pdf') }}"
+       class="btn btn-ghost btn-sm">
+      <i class="ti ti-file-type-pdf"></i> Export PDF
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<div class="section-divider">
+  <div class="section-divider-label">
+    <i class="ti ti-arrow-down"></i> Borrowed
+  </div>
+  <div class="section-divider-line"></div>
+  <div class="section-count">{{ total_b }}</div>
+</div>
+
+<div class="table-shell" style="margin-bottom:16px;">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Book</th>
+          {% if session.get('role') == 'admin' %}<th>Borrower</th>{% endif %}
+          <th>Borrowed On</th>
+          <th>Due Date</th>
+          <th>Fine</th>
+          {% if session.get('role') == 'admin' %}<th>Paid</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in borrowed %}
+        <tr {% if row.is_overdue %}class="row-overdue"{% endif %}>
+          <td>#{{ row.id }}</td>
+          <td>
+            <div class="book-cell-name">{{ row.book_name }}</div>
+            <div class="book-cell-meta">{{ row.author_name }}</div>
+            {% if row.renewals %}
+            <div style="font-size:0.68rem;color:var(--c-text-3);
+                        margin-top:2px;">
+              Renewed {{ row.renewals }}×
+            </div>
+            {% endif %}
+          </td>
+          {% if session.get('role') == 'admin' %}
+          <td>
+            <span class="member-avatar">
+              {{ row.borrower_name[0].upper() }}
+            </span>
+            {{ row.borrower_name }}
+          </td>
+          {% endif %}
+          <td style="font-size:0.82rem;">{{ row.borrow_date }}</td>
+          <td>
+            {% if row.due_date %}
+            <span style="font-size:0.82rem;
+              color:{% if row.is_overdue %}var(--c-ruby)
+                    {% else %}var(--c-amber){% endif %};">
+              <i class="ti ti-calendar"
+                 style="font-size:13px;margin-right:3px;
+                        vertical-align:-1px;"></i>
+              {{ row.due_date }}
+              {% if row.is_overdue %}
+              <span class="badge-overdue">Overdue</span>
+              {% endif %}
+            </span>
+            {% else %}
+            <span style="color:var(--c-text-3);">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.fine > 0 %}
+            <span style="color:var(--c-ruby);font-size:0.82rem;
+                         font-weight:600;">
+              ₹{{ row.fine }}
+            </span>
+            {% else %}
+            <span style="color:var(--c-text-3);font-size:0.78rem;">—</span>
+            {% endif %}
+          </td>
+          {% if session.get('role') == 'admin' %}
+          <td>
+            {% if row.fine > 0 and not row.fine_paid %}
+            <form method="POST"
+                  action="{{ url_for('fine_paid', borrow_id=row.id) }}"
+                  style="display:inline;">
+              <input type="hidden" name="csrf_token"
+                     value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="btn btn-success btn-sm"
+                      title="Mark fine as paid">
+                <i class="ti ti-check"></i> Paid
+              </button>
+            </form>
+            {% elif row.fine_paid %}
+            <span style="font-size:0.72rem;color:var(--c-emerald);">
+              <i class="ti ti-circle-check"></i> Paid
+            </span>
+            {% else %}
+            <span style="color:var(--c-text-3);font-size:0.72rem;">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+        {% if borrowed | length == 0 %}
+        <tr>
+          <td colspan="{% if session.get('role') == 'admin' %}7{% else %}5{% endif %}">
+            <div class="empty-state empty-state-borrowed"
+                 style="padding:36px;">
+              <div class="empty-icon-wrap">
+                <i class="ti ti-bookmark-off"></i>
+              </div>
+              <h3>No borrow records</h3>
+              <p>Nothing borrowed yet.</p>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ paginate(page_b, total_pages_b, url_for('history'),
+   '&page_r=' ~ page_r) }}
+
+<div class="section-divider" style="margin-top:36px;">
+  <div class="section-divider-label">
+    <i class="ti ti-arrow-up"></i> Returned
+  </div>
+  <div class="section-divider-line"></div>
+  <div class="section-count">{{ total_r }}</div>
+</div>
+
+<div class="table-shell">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Book</th>
+          {% if session.get('role') == 'admin' %}<th>Returned By</th>{% endif %}
+          <th>Returned On</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in returned %}
+        <tr>
+          <td>#{{ row.id }}</td>
+          <td>
+            <div class="book-cell-name">{{ row.book_name }}</div>
+            <div class="book-cell-meta">{{ row.author_name }}</div>
+          </td>
+          {% if session.get('role') == 'admin' %}
+          <td>
+            <span class="member-avatar">
+              {{ row.returner_name[0].upper() }}
+            </span>
+            {{ row.returner_name }}
+          </td>
+          {% endif %}
+          <td style="font-size:0.82rem;">{{ row.return_date }}</td>
+        </tr>
+        {% endfor %}
+        {% if returned | length == 0 %}
+        <tr>
+          <td colspan="{% if session.get('role') == 'admin' %}4{% else %}3{% endif %}">
+            <div class="empty-state empty-state-returned"
+                 style="padding:36px;">
+              <div class="empty-icon-wrap">
+                <i class="ti ti-arrow-back-up-double"></i>
+              </div>
+              <h3>No return records</h3>
+              <p>Nothing returned yet.</p>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ paginate(page_r, total_pages_r, url_for('history'),
+   '&page_b=' ~ page_b) }}
+
+{% endblock %}

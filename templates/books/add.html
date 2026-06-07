@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Add Book — LendWise{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="back-row">
+    <a href="{{ url_for('home') }}" class="btn btn-ghost btn-sm">
+      <i class="ti ti-arrow-left"></i> Back to catalogue
+    </a>
+  </div>
+  <div class="form-card">
+    <div class="form-card-eyebrow"><i class="ti ti-plus"></i> New Entry</div>
+    <div class="form-card-title">Add a Book</div>
+
+    <form method="POST" id="add-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field-grid-2">
+        <div class="field field-span-2">
+          <label class="field-label" for="name">Book Title *</label>
+          <input class="field-input" type="text" id="name" name="name"
+                 placeholder="e.g. The Great Gatsby" required>
+        </div>
+        <div class="field field-span-2">
+          <label class="field-label" for="author">Author *</label>
+          <input class="field-input" type="text" id="author" name="author"
+                 placeholder="e.g. F. Scott Fitzgerald" required>
+        </div>
+        <div class="field field-span-2">
+          <label class="field-label" for="category">Category *</label>
+          <input class="field-input" type="text" id="category" name="category"
+                 placeholder="e.g. Fiction, Science, History"
+                 list="cat-list" required>
+          <datalist id="cat-list">
+            {% for cat in categories %}<option value="{{ cat }}">{% endfor %}
+          </datalist>
+        </div>
+        <div class="field">
+          <label class="field-label" for="isbn">
+            ISBN
+            <span style="font-weight:400;text-transform:none;
+              letter-spacing:0;color:var(--c-text-3)">(optional)</span>
+          </label>
+          <input class="field-input" type="text" id="isbn" name="isbn"
+                 placeholder="978-0-00-000000-0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="year">
+            Year
+            <span style="font-weight:400;text-transform:none;
+              letter-spacing:0;color:var(--c-text-3)">(optional)</span>
+          </label>
+          <input class="field-input" type="text" id="year" name="year"
+                 placeholder="2024" maxlength="4">
+        </div>
+        <div class="field field-span-2">
+          <label class="field-label" for="cover_url">
+            Cover Image URL
+            <span style="font-weight:400;text-transform:none;
+              letter-spacing:0;color:var(--c-text-3)">
+              (optional — overrides Open Library auto-fetch)
+            </span>
+          </label>
+          <input class="field-input" type="url" id="cover_url" name="cover_url"
+                 placeholder="https://…/cover.jpg">
+          <div style="font-size:0.72rem;color:var(--c-text-3);margin-top:6px;">
+            <i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px;"></i>
+            If ISBN is filled, the cover is fetched automatically from Open Library.
+          </div>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" id="add-submit-btn">
+          <i class="ti ti-plus"></i> Add Book
+        </button>
+        <a href="{{ url_for('home') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>lockFormOnSubmit('add-form','add-submit-btn');</script>{% endblock %}

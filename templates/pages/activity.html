@@ -1,0 +1,126 @@
+{% from 'macros/pagination.html' import paginate %}
+{% extends "base.html" %}
+{% block title %}Activity Log — LendWise{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-heading">
+    <div class="page-eyebrow">Admin</div>
+    <h1 class="page-title">Activity Log</h1>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="GET" class="toolbar" style="margin-bottom:20px;">
+  <select name="action" class="filter-select"
+          onchange="this.form.submit()"
+          aria-label="Filter by action type">
+    <option value="">All Actions</option>
+    {% for a in actions %}
+    <option value="{{ a.action }}"
+      {% if action == a.action %}selected{% endif %}>
+      {{ a.action }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:0.72rem;color:var(--c-text-3);
+                  text-transform:uppercase;letter-spacing:0.1em;
+                  white-space:nowrap;">From</label>
+    <input type="date" name="date_from"
+           value="{{ date_from }}"
+           class="filter-select"
+           style="min-width:140px;"
+           aria-label="Filter from date">
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <label style="font-size:0.72rem;color:var(--c-text-3);
+                  text-transform:uppercase;letter-spacing:0.1em;
+                  white-space:nowrap;">To</label>
+    <input type="date" name="date_to"
+           value="{{ date_to }}"
+           class="filter-select"
+           style="min-width:140px;"
+           aria-label="Filter to date">
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-sm">
+    <i class="ti ti-filter"></i> Apply
+  </button>
+
+  {% if action or date_from or date_to %}
+  <a href="{{ url_for('activity') }}"
+     class="btn btn-ghost btn-sm"
+     aria-label="Clear all filters">
+    <i class="ti ti-x"></i> Clear
+  </a>
+  {% endif %}
+</form>
+
+<div class="table-shell">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Detail</th>
+          <th>IP</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>#{{ log.id }}</td>
+          <td>
+            <span class="member-avatar">
+              {{ log.username[0].upper() if log.username else '?' }}
+            </span>
+            {{ log.username }}
+          </td>
+          <td>
+            <span class="action-badge
+                 action-{{ log.action | lower | replace('_','-') }}">
+              {{ log.action }}
+            </span>
+          </td>
+          <td style="font-size:0.82rem;max-width:300px;">
+            {{ log.detail }}
+          </td>
+          <td style="font-family:var(--f-mono);font-size:0.72rem;
+                     color:var(--c-text-3);">
+            {{ log.ip_address }}
+          </td>
+          <td style="font-size:0.78rem;color:var(--c-text-3);
+                     white-space:nowrap;">
+            {{ log.created_at }}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if logs | length == 0 %}
+        <tr>
+          <td colspan="6">
+            <div class="empty-state empty-state-activity">
+              <div class="empty-icon-wrap">
+                <i class="ti ti-timeline-event-exclamation"></i>
+              </div>
+              <h3>No activity found</h3>
+              <p>Try adjusting your filters.</p>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ paginate(page, total_pages, url_for('activity'),
+   '&action=' ~ action ~
+   '&date_from=' ~ date_from ~
+   '&date_to='   ~ date_to) }}
+
+{% endblock %}
