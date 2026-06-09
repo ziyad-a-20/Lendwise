@@ -6,9 +6,10 @@
     "pointer-events:none;touch-action:none;";
 
   var ctx = canvas.getContext("2d");
-  var STAR_COUNT = 110,
-    MAX_DIST = 160,
-    SPEED = 0.12;
+  // reduced from 110 to 55 for better performance
+  var STAR_COUNT = 55,
+    MAX_DIST = 140,
+    SPEED = 0.1;
   var W,
     H,
     stars = [];
@@ -26,10 +27,10 @@
       y: rand(0, H),
       vx: rand(-SPEED, SPEED),
       vy: rand(-SPEED, SPEED),
-      r: rand(0.6, 1.6),
-      baseA: rand(0.25, 0.7),
+      r: rand(0.6, 1.4),
+      baseA: rand(0.2, 0.55),
       phase: rand(0, Math.PI * 2),
-      speed: rand(0.004, 0.012),
+      speed: rand(0.004, 0.01),
     };
   }
   function init() {
@@ -45,7 +46,7 @@
         var d = Math.sqrt(dx * dx + dy * dy);
         if (d < MAX_DIST) {
           var alpha =
-            (1 - d / MAX_DIST) * ((stars[i].baseA + stars[j].baseA) / 2) * 0.18;
+            (1 - d / MAX_DIST) * ((stars[i].baseA + stars[j].baseA) / 2) * 0.15;
           ctx.beginPath();
           ctx.moveTo(stars[i].x, stars[i].y);
           ctx.lineTo(stars[j].x, stars[j].y);
@@ -62,19 +63,6 @@
       var s = stars[i];
       s.phase += s.speed;
       var a = s.baseA * (0.65 + 0.35 * Math.sin(s.phase));
-      if (s.r > 1.2) {
-        ctx.strokeStyle = "rgba(200,191,168," + a * 0.5 + ")";
-        ctx.lineWidth = 0.4;
-        var arm = s.r * 2.2;
-        ctx.beginPath();
-        ctx.moveTo(s.x - arm, s.y);
-        ctx.lineTo(s.x + arm, s.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y - arm);
-        ctx.lineTo(s.x, s.y + arm);
-        ctx.stroke();
-      }
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(200,191,168," + a + ")";
@@ -88,12 +76,19 @@
     }
   }
 
+  var raf;
   function loop() {
     ctx.clearRect(0, 0, W, H);
     drawConnections();
     drawStars();
-    requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   }
+
+  // pause when tab hidden — saves CPU
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) cancelAnimationFrame(raf);
+    else loop();
+  });
 
   window.addEventListener("resize", function () {
     resize();
@@ -101,5 +96,5 @@
   });
   resize();
   init();
-  requestAnimationFrame(loop);
+  loop();
 })();

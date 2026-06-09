@@ -1,39 +1,40 @@
 {% macro nav_links(drawer=false) %}
 {% set lc = 'drawer-link' if drawer else 'nav-link' %}
-{% set ca = 'onclick="closeDrawer()"' if drawer else '' %}
+{# FIX: use data-close-drawer instead of inline onclick — CSP-safe #}
+{% set da = 'data-close-drawer' if drawer else '' %}
 
 <a href="{{ url_for('home') }}"
    class="{{ lc }} {% if request.endpoint == 'home' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-layout-grid"></i> Catalogue</a>
+   {{ da }}><i class="ti ti-layout-grid"></i> Catalogue</a>
 
 {% if session.get('role') == 'admin' %}
 <a href="{{ url_for('dashboard') }}"
    class="{{ lc }} {% if request.endpoint == 'dashboard' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-chart-bar"></i> Dashboard</a>
+   {{ da }}><i class="ti ti-chart-bar"></i> Dashboard</a>
 {% else %}
 <a href="{{ url_for('my_dashboard') }}"
    class="{{ lc }} {% if request.endpoint == 'my_dashboard' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-layout-dashboard"></i> My Dashboard</a>
+   {{ da }}><i class="ti ti-layout-dashboard"></i> My Dashboard</a>
 {% endif %}
 
 <a href="{{ url_for('history') }}"
    class="{{ lc }} {% if request.endpoint == 'history' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-history"></i>
+   {{ da }}><i class="ti ti-history"></i>
    {% if session.get('role') == 'admin' %}History{% else %}My Books{% endif %}
 </a>
 
 {% if session.get('role') != 'admin' %}
 <a href="{{ url_for('wishlist') }}"
    class="{{ lc }} {% if request.endpoint == 'wishlist' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-heart"></i> Wishlist</a>
+   {{ da }}><i class="ti ti-heart"></i> Wishlist</a>
 {% endif %}
 
 {% if session.get('role') == 'admin' %}
 <a href="{{ url_for('members') }}"
    class="{{ lc }} {% if request.endpoint == 'members' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-users"></i> Members</a>
+   {{ da }}><i class="ti ti-users"></i> Members</a>
 <a href="{{ url_for('activity') }}"
    class="{{ lc }} {% if request.endpoint == 'activity' %}active{% endif %}"
-   {{ ca }}><i class="ti ti-activity"></i> Activity</a>
+   {{ da }}><i class="ti ti-activity"></i> Activity</a>
 {% endif %}
 {% endmacro %}

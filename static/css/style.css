@@ -519,6 +519,7 @@ body::after {
   font-size: 2.2rem;
   font-weight: 600;
   color: var(--c-text-1);
+  font-style: normal;
   line-height: 1;
   margin-bottom: 5px;
   letter-spacing: -0.02em;
@@ -1786,6 +1787,10 @@ tbody tr:last-child td {
   position: relative;
   z-index: 1;
 }
+.cover-wrap.cover-loaded::before,
+.loan-cover.cover-loaded::before {
+  display: none;
+}
 
 /* ── Loan cards (member dashboard) ──────────────────────────── */
 .active-loans-grid {
@@ -1816,9 +1821,12 @@ tbody tr:last-child td {
   background: rgba(240, 92, 110, 0.03);
 }
 
+/* ── Loan card cover — same pattern as catalogue cover-wrap ── */
 .loan-cover {
   flex-shrink: 0;
   position: relative;
+  width: 48px;
+  height: 62px;
 }
 .loan-cover::before {
   content: "";
@@ -1835,12 +1843,13 @@ tbody tr:last-child td {
   animation: shimmer 1.4s ease-in-out infinite;
   z-index: 0;
 }
-.loan-cover img,
-.loan-cover .book-cover-block {
-  position: relative;
-  z-index: 1;
+.loan-cover.cover-loaded::before {
+  display: none;
 }
 .loan-cover img {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   width: 48px;
   height: 62px;
   object-fit: cover;
@@ -1853,6 +1862,9 @@ tbody tr:last-child td {
   opacity: 1;
 }
 .loan-cover .book-cover-block {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   width: 48px;
   height: 62px;
   font-size: 1.4rem;
@@ -1919,11 +1931,11 @@ tbody tr:last-child td {
 
 /* ── Overdue highlights ──────────────────────────────────────── */
 .row-overdue td {
-  background: rgba(240, 92, 110, 0.04);
-  border-left: 2px solid var(--c-ruby);
+  background: transparent;
+  border-bottom-color: var(--c-border);
 }
 .row-overdue td:first-child {
-  border-left: 2px solid var(--c-ruby);
+  border-left: 2px solid rgba(240, 92, 110, 0.35);
 }
 .badge-overdue {
   display: inline-flex;

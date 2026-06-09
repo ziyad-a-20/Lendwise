@@ -9,38 +9,46 @@
     <h1 class="page-title">My Dashboard</h1>
   </div>
   <div class="page-actions">
-    <a href="{{ url_for('export_my_history_pdf') }}"
-       class="btn btn-ghost btn-sm">
+    <a href="{{ url_for('export_my_history_pdf') }}" class="btn btn-ghost btn-sm">
       <i class="ti ti-file-type-pdf"></i> Export History PDF
     </a>
   </div>
 </div>
 
-<!-- Stats row -->
+<!-- Stats -->
 <div class="stats-grid stats-grid-4" style="margin-bottom:32px;">
   <div class="stat-card stat-accent">
     <div class="stat-icon-wrap"><i class="ti ti-book"></i></div>
-    <div class="stat-value">{{ active_loans | length }}</div>
+    <div class="stat-value" style="font-family:var(--f-body);font-style:normal;">
+      {{ active_loans | length }}
+    </div>
     <div class="stat-label">Currently Borrowed</div>
   </div>
   <div class="stat-card stat-ruby">
     <div class="stat-icon-wrap"><i class="ti ti-currency-rupee"></i></div>
-    <div class="stat-value">₹{{ total_fine }}</div>
+    <div class="stat-value" style="font-family:var(--f-body);font-style:normal;">
+      ₹{{ total_fine }}
+    </div>
     <div class="stat-label">Outstanding Fine</div>
   </div>
   <div class="stat-card stat-sapphire">
     <div class="stat-icon-wrap"><i class="ti ti-history"></i></div>
-    <div class="stat-value">{{ total_borrows }}</div>
+    <div class="stat-value" style="font-family:var(--f-body);font-style:normal;">
+      {{ total_borrows }}
+    </div>
     <div class="stat-label">Total Borrows</div>
   </div>
   <div class="stat-card stat-emerald">
     <div class="stat-icon-wrap"><i class="ti ti-heart"></i></div>
-    <div class="stat-value">{{ wcount }}</div>
+    <div class="stat-value" id="wishlist-count-stat"
+         style="font-family:var(--f-body);font-style:normal;">
+      {{ wcount }}
+    </div>
     <div class="stat-label">Wishlist</div>
   </div>
 </div>
 
-<!-- Currently borrowed books -->
+<!-- Currently borrowed -->
 <div class="section-divider">
   <div class="section-divider-label">
     <i class="ti ti-book"></i> Currently Borrowed
@@ -53,33 +61,28 @@
 <div class="active-loans-grid">
   {% for loan in active_loans %}
   <div class="loan-card {% if loan.is_overdue %}loan-card-overdue{% endif %}">
-    <!-- Cover -->
+
+    <!-- Cover: real image with letter block fallback, same as catalogue -->
     <div class="loan-cover">
       {% if loan._cover %}
       <img src="{{ loan._cover }}"
            alt="{{ loan.book_name }}"
-           class="loan-cover-img"
-           onerror="this.style.display='none';
-                    this.nextElementSibling.style.display='flex';">
-      <div class="book-cover-block" data-ci="{{ loop.index0 % 10 }}"
-           style="display:none;">
-        {{ loan.book_name[0].upper() }}
-      </div>
-      {% else %}
-      <div class="book-cover-block" data-ci="{{ loop.index0 % 10 }}">
-        {{ loan.book_name[0].upper() }}
-      </div>
+           loading="lazy"
+           decoding="async">
       {% endif %}
+      <div class="book-cover-block"
+           data-ci="{{ loop.index0 % 10 }}"
+           {% if loan._cover %}style="display:none;"{% endif %}>
+        {{ loan.book_name[0].upper() }}
+      </div>
     </div>
 
-    <!-- Info -->
     <div class="loan-info">
       <div class="loan-title">{{ loan.book_name }}</div>
       <div class="loan-author">{{ loan.author_name }}</div>
 
       <div class="loan-meta">
-        <span class="loan-due
-          {% if loan.is_overdue %}loan-due-overdue{% endif %}">
+        <span class="loan-due {% if loan.is_overdue %}loan-due-overdue{% endif %}">
           <i class="ti ti-calendar"></i>
           Due: {{ loan.due_date_fmt }}
         </span>
@@ -99,8 +102,7 @@
       {% endif %}
 
       {% if loan.renewals > 0 %}
-      <div style="font-size:0.72rem;color:var(--c-text-3);
-                  margin-top:4px;">
+      <div style="font-size:0.72rem;color:var(--c-text-3);margin-top:4px;">
         Renewed {{ loan.renewals }}× of {{ max_renewals }}
       </div>
       {% endif %}
@@ -114,24 +116,24 @@
         <form method="POST"
               action="{{ url_for('renew', id=loan.book_id) }}"
               style="display:inline;">
-          <input type="hidden" name="csrf_token"
-                 value="{{ csrf_token() }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-ghost btn-sm">
             <i class="ti ti-refresh"></i> Renew
           </button>
         </form>
         {% else %}
-        <span style="font-size:0.72rem;color:var(--c-text-3);
-                     font-style:italic;">Max renewed</span>
+        <span style="font-size:0.72rem;color:var(--c-text-3);font-style:italic;">
+          Max renewed
+        </span>
         {% endif %}
       </div>
     </div>
   </div>
   {% endfor %}
 </div>
+
 {% else %}
-<div class="empty-state empty-state-borrowed"
-     style="padding:48px 32px;">
+<div class="empty-state empty-state-borrowed" style="padding:48px 32px;">
   <div class="empty-icon-wrap"><i class="ti ti-bookmark-off"></i></div>
   <h3>No active borrows</h3>
   <p>You haven't borrowed any books yet.</p>
@@ -142,7 +144,7 @@
 </div>
 {% endif %}
 
-<!-- Borrow trend chart -->
+<!-- Borrow trend -->
 <div class="section-divider" style="margin-top:40px;">
   <div class="section-divider-label">
     <i class="ti ti-chart-line"></i> My Borrow Trend
@@ -163,16 +165,13 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="application/json" id="data-monthly">
-  {{ monthly | tojson }}
-</script>
+<script type="application/json" id="data-monthly">{{ monthly | tojson }}</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (function () {
   var el  = document.getElementById('memberTrendChart');
   if (!el) return;
-  var raw = JSON.parse(
-    document.getElementById('data-monthly').textContent);
+  var raw    = JSON.parse(document.getElementById('data-monthly').textContent);
   var labels = raw.map(function(r){ return r.month; });
   var counts = raw.map(function(r){ return r.count; });
 
@@ -186,29 +185,28 @@
       labels: labels.length ? labels : ['No data'],
       datasets: [{
         label: 'Books Borrowed',
-        data: counts.length ? counts : [0],
+        data:   counts.length ? counts : [0],
         backgroundColor: 'rgba(200,191,168,0.2)',
-        borderColor: '#c8bfa8',
-        borderWidth: 1.5,
-        borderRadius: 6
+        borderColor:     '#c8bfa8',
+        borderWidth:     1.5,
+        borderRadius:    6
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: true,
       animation: { duration: 500 },
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: 'rgba(14,14,24,0.95)',
-          borderColor: 'rgba(200,191,168,0.2)',
+          borderColor:     'rgba(200,191,168,0.2)',
           borderWidth: 1, padding: 10, cornerRadius: 8
         }
       },
       scales: {
         y: { beginAtZero: true,
              ticks: { stepSize: 1, precision: 0 },
-             grid: { color: 'rgba(255,255,255,0.04)' } },
+             grid:  { color: 'rgba(255,255,255,0.04)' } },
         x: { grid: { color: 'rgba(255,255,255,0.04)' } }
       }
     }

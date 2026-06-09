@@ -10,11 +10,9 @@
   </div>
 </div>
 
-<!-- Filters -->
 <form method="GET" class="toolbar" style="margin-bottom:20px;">
   <select name="action" class="filter-select"
-          onchange="this.form.submit()"
-          aria-label="Filter by action type">
+          onchange="this.form.submit()" aria-label="Filter by action type">
     <option value="">All Actions</option>
     {% for a in actions %}
     <option value="{{ a.action }}"
@@ -28,20 +26,16 @@
     <label style="font-size:0.72rem;color:var(--c-text-3);
                   text-transform:uppercase;letter-spacing:0.1em;
                   white-space:nowrap;">From</label>
-    <input type="date" name="date_from"
-           value="{{ date_from }}"
-           class="filter-select"
-           style="min-width:140px;"
+    <input type="date" name="date_from" value="{{ date_from }}"
+           class="filter-select" style="min-width:140px;"
            aria-label="Filter from date">
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
     <label style="font-size:0.72rem;color:var(--c-text-3);
                   text-transform:uppercase;letter-spacing:0.1em;
                   white-space:nowrap;">To</label>
-    <input type="date" name="date_to"
-           value="{{ date_to }}"
-           class="filter-select"
-           style="min-width:140px;"
+    <input type="date" name="date_to" value="{{ date_to }}"
+           class="filter-select" style="min-width:140px;"
            aria-label="Filter to date">
   </div>
 
@@ -50,9 +44,7 @@
   </button>
 
   {% if action or date_from or date_to %}
-  <a href="{{ url_for('activity') }}"
-     class="btn btn-ghost btn-sm"
-     aria-label="Clear all filters">
+  <a href="{{ url_for('activity') }}" class="btn btn-ghost btn-sm">
     <i class="ti ti-x"></i> Clear
   </a>
   {% endif %}
@@ -87,15 +79,12 @@
               {{ log.action }}
             </span>
           </td>
-          <td style="font-size:0.82rem;max-width:300px;">
-            {{ log.detail }}
-          </td>
+          <td style="font-size:0.82rem;max-width:300px;">{{ log.detail }}</td>
           <td style="font-family:var(--f-mono);font-size:0.72rem;
                      color:var(--c-text-3);">
             {{ log.ip_address }}
           </td>
-          <td style="font-size:0.78rem;color:var(--c-text-3);
-                     white-space:nowrap;">
+          <td style="font-size:0.78rem;color:var(--c-text-3);white-space:nowrap;">
             {{ log.created_at }}
           </td>
         </tr>
@@ -118,9 +107,10 @@
   </div>
 </div>
 
+<!-- FIX: all extra_params properly url-encoded -->
 {{ paginate(page, total_pages, url_for('activity'),
-   '&action=' ~ action ~
-   '&date_from=' ~ date_from ~
-   '&date_to='   ~ date_to) }}
+   '&action='    ~ (action    | urlencode) ~
+   '&date_from=' ~ (date_from | urlencode) ~
+   '&date_to='   ~ (date_to   | urlencode)) }}
 
 {% endblock %}

@@ -12,16 +12,33 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   });
 
-  // Cover image fade-in after load
+  // Handle all cover images: catalogue cover-wrap AND loan-cover
   document
     .querySelectorAll(".cover-wrap img, .loan-cover img")
     .forEach(function (img) {
-      if (img.complete && img.naturalWidth > 0) {
+      var wrap = img.closest(".cover-wrap, .loan-cover");
+      var fallback = wrap ? wrap.querySelector(".book-cover-block") : null;
+
+      function onLoad() {
         img.classList.add("loaded");
+        if (fallback) fallback.style.display = "none";
+        if (wrap) wrap.classList.add("cover-loaded");
+      }
+      function onError() {
+        img.style.display = "none";
+        if (fallback) {
+          fallback.style.display = "flex";
+          fallback.style.position = "relative";
+        }
+        if (wrap) wrap.classList.add("cover-loaded");
+      }
+
+      if (img.complete) {
+        if (img.naturalWidth > 0) onLoad();
+        else onError();
       } else {
-        img.addEventListener("load", function () {
-          img.classList.add("loaded");
-        });
+        img.addEventListener("load", onLoad);
+        img.addEventListener("error", onError);
       }
     });
 });
@@ -35,27 +52,21 @@ function dismiss(el) {
   }, 360);
 }
 
-// ── Toast notification ─────────────────────────────────────────
-// Shows a flash-style toast without a page reload.
-// category: 'success' | 'danger' | 'info' | 'warning'
+// ── Toast ──────────────────────────────────────────────────────
 function showToast(message, category) {
   category = category || "info";
-
-  // Ensure the flash-stack container exists
   var stack = document.querySelector(".flash-stack");
   if (!stack) {
     stack = document.createElement("div");
     stack.className = "flash-stack";
     document.body.appendChild(stack);
   }
-
   var iconMap = {
     success: "ti-circle-check",
     danger: "ti-circle-x",
     warning: "ti-alert-triangle",
     info: "ti-info-circle",
   };
-
   var el = document.createElement("div");
   el.className = "flash flash-" + category;
   el.innerHTML =
@@ -63,18 +74,13 @@ function showToast(message, category) {
     (iconMap[category] || "ti-info-circle") +
     '"></i> ' +
     message;
-
   el.addEventListener("click", function () {
     dismiss(el);
   });
   stack.appendChild(el);
-
-  // Trigger entrance animation (element must be in DOM first)
   requestAnimationFrame(function () {
     el.style.animation = "slideInFlash 0.4s cubic-bezier(0.34,1.3,0.64,1) both";
   });
-
-  // Auto-dismiss after 4 seconds
   setTimeout(function () {
     dismiss(el);
   }, 4000);
@@ -96,8 +102,7 @@ function toggleDrawer() {
   var backdrop = document.getElementById("nav-backdrop");
   var icon = document.getElementById("hamburger-icon");
   if (!drawer) return;
-  var isOpen = drawer.classList.contains("open");
-  if (isOpen) {
+  if (drawer.classList.contains("open")) {
     closeDrawer();
   } else {
     drawer.classList.add("open");
@@ -122,7 +127,12 @@ window.addEventListener("resize", function () {
   if (window.innerWidth > 960) closeDrawer();
 });
 
-// ── Form submit lock (prevents double-submit) ──────────────────
+// data-close-drawer — CSP-safe drawer close
+document.addEventListener("click", function (e) {
+  if (e.target.closest("[data-close-drawer]")) closeDrawer();
+});
+
+// ── Form submit lock ───────────────────────────────────────────
 function lockFormOnSubmit(formId, btnId) {
   var form = document.getElementById(formId);
   var btn = document.getElementById(btnId);
@@ -139,7 +149,6 @@ function lockFormOnSubmit(formId, btnId) {
   });
 }
 
-// Inject spin keyframe once
 (function () {
   if (document.getElementById("_lw_spin_kf")) return;
   var s = document.createElement("style");
@@ -150,8 +159,23 @@ function lockFormOnSubmit(formId, btnId) {
   document.head.appendChild(s);
 })();
 
-// ── CSRF helper ────────────────────────────────────────────────
+// ── CSRF ───────────────────────────────────────────────────────
 function getCsrf() {
   var m = document.querySelector('meta[name="csrf-token"]');
   return m ? m.getAttribute("content") : "";
+}
+
+// ── Wishlist count live update ─────────────────────────────────
+function updateWishlistCount() {
+  fetch("/api/wishlist-count", {
+    headers: { "X-Requested-With": "XMLHttpRequest" },
+  })
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (d) {
+      var el = document.getElementById("wishlist-count-stat");
+      if (el) el.textContent = d.count;
+    })
+    .catch(function () {});
 }

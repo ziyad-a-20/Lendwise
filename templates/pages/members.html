@@ -11,6 +11,24 @@
   </div>
 </div>
 
+<!-- Member search -->
+<form method="GET" class="toolbar" style="margin-bottom:20px;">
+  <div class="search-wrap">
+    <i class="ti ti-search"></i>
+    <input type="text" name="search" class="search-input"
+           placeholder="Search by username…"
+           value="{{ search }}" autocomplete="off">
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">
+    <i class="ti ti-search"></i> Search
+  </button>
+  {% if search %}
+  <a href="{{ url_for('members') }}" class="btn btn-ghost btn-sm">
+    <i class="ti ti-x"></i> Clear
+  </a>
+  {% endif %}
+</form>
+
 <div class="table-shell">
   <div class="table-scroll">
     <table>
@@ -29,9 +47,7 @@
         <tr>
           <td>#{{ user.id }}</td>
           <td>
-            <span class="member-avatar">
-              {{ user.username[0].upper() }}
-            </span>
+            <span class="member-avatar">{{ user.username[0].upper() }}</span>
             {{ user.username }}
           </td>
           <td>
@@ -47,27 +63,29 @@
           </td>
           <td style="font-size:0.78rem;color:var(--c-text-3);">
             {% if user.email %}
-              {{ user.email | replace('@', '***@') }}
+              {{ user.email | mask_email }}
             {% else %}
-              <span style="font-style:italic;
-                           color:var(--c-text-3);">No email</span>
+              <span style="font-style:italic;color:var(--c-text-3);">No email</span>
             {% endif %}
           </td>
           <td style="font-size:0.82rem;color:var(--c-text-3);">
             {% if user.last_login %}
             <i class="ti ti-clock"
-               style="font-size:13px;margin-right:4px;
-                      vertical-align:-1px;"></i>
+               style="font-size:13px;margin-right:4px;vertical-align:-1px;"></i>
             {{ user.last_login }}
             {% else %}Never{% endif %}
           </td>
           <td>
-            <a href="{{ url_for('export_member_history_pdf',
-                        username=user.username) }}"
+            <!-- PDF only for public members, not for admin accounts -->
+            {% if user.role == 'public' %}
+            <a href="{{ url_for('export_member_history_pdf', username=user.username) }}"
                class="btn btn-ghost btn-sm"
-               title="Export {{ user.username }}'s history">
+               title="Export {{ user.username }}'s borrow history">
               <i class="ti ti-file-type-pdf"></i> PDF
             </a>
+            {% else %}
+            <span style="color:var(--c-text-3);font-size:0.72rem;">—</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -78,8 +96,11 @@
               <div class="empty-icon-wrap">
                 <i class="ti ti-user-search"></i>
               </div>
-              <h3>No members yet</h3>
-              <p>Registered users will appear here once they sign up.</p>
+              <h3>No members found</h3>
+              <p>
+                {% if search %}No results for "{{ search }}".
+                {% else %}No users registered yet.{% endif %}
+              </p>
             </div>
           </td>
         </tr>
@@ -89,5 +110,7 @@
   </div>
 </div>
 
-{{ paginate(page, total_pages, url_for('members')) }}
+{{ paginate(page, total_pages, url_for('members'),
+   '&search=' ~ (search | urlencode)) }}
+
 {% endblock %}

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}{{ book.book_name }} — LendWise{% endblock %}
+
+{% block content %}
+
+<div class="form-page" style="max-width:680px;">
+  <div class="back-row">
+    <a href="{{ url_for('home') }}" class="btn btn-ghost btn-sm">
+      <i class="ti ti-arrow-left"></i> Back to catalogue
+    </a>
+  </div>
+
+  <div class="form-card" style="padding:36px 36px 32px;">
+
+    <!-- Top shimmer line is handled by form-card::before -->
+
+    <div style="display:flex;gap:24px;align-items:flex-start;">
+
+      <!-- Cover -->
+      <div style="flex-shrink:0;">
+        <div class="loan-cover" style="width:80px;height:104px;">
+          {% if book._cover %}
+          <img data-src="{{ book._cover }}"
+               src=""
+               alt="{{ book.book_name }}"
+               loading="lazy"
+               style="width:80px;height:104px;object-fit:cover;
+                      border-radius:6px 10px 10px 6px;
+                      display:block;opacity:0;transition:opacity .3s;">
+          <div class="book-cover-block" data-ci="0"
+               style="width:80px;height:104px;font-size:2rem;">
+            {{ book.book_name[0].upper() }}
+          </div>
+          {% else %}
+          <div class="book-cover-block" data-ci="0"
+               style="width:80px;height:104px;font-size:2rem;">
+            {{ book.book_name[0].upper() }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Title block -->
+      <div style="flex:1;min-width:0;">
+        <div class="form-card-eyebrow" style="margin-bottom:6px;">
+          <i class="ti ti-book"></i>
+          {{ book.category }}
+        </div>
+        <h1 style="font-family:var(--f-display);font-size:1.75rem;
+                   font-weight:600;color:var(--c-text-1);
+                   line-height:1.2;margin-bottom:6px;">
+          {{ book.book_name }}
+        </h1>
+        <div style="font-family:var(--f-display);font-size:1rem;
+                    color:var(--c-text-3);font-style:italic;
+                    margin-bottom:16px;">
+          {{ book.author_name }}
+          {% if book.year %} · {{ book.year }}{% endif %}
+        </div>
+
+        <!-- Status badge -->
+        {% if book.status == 'Available' %}
+        <span class="status status-available">
+          <span class="status-dot"></span> Available
+        </span>
+        {% else %}
+        <span class="status status-borrowed">
+          <span class="status-dot"></span> On Loan
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Metadata row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);
+                gap:12px;margin-top:28px;padding-top:24px;
+                border-top:1px solid var(--c-border);">
+      {% if book.isbn %}
+      <div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:.14em;
+                    text-transform:uppercase;color:var(--c-text-3);
+                    margin-bottom:4px;">ISBN</div>
+        <div style="font-family:var(--f-mono);font-size:0.8rem;
+                    color:var(--c-text-2);">{{ book.isbn }}</div>
+      </div>
+      {% endif %}
+      <div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:.14em;
+                    text-transform:uppercase;color:var(--c-text-3);
+                    margin-bottom:4px;">Times Borrowed</div>
+        <div style="font-family:var(--f-display);font-size:1.1rem;
+                    font-weight:600;color:var(--c-accent);">
+          {{ borrow_count }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:.14em;
+                    text-transform:uppercase;color:var(--c-text-3);
+                    margin-bottom:4px;">Category</div>
+        <span class="tag">{{ book.category }}</span>
+      </div>
+    </div>
+
+    <!-- Admin: current borrower info -->
+    {% if session.get('role') == 'admin' and borrow_record %}
+    <div style="margin-top:24px;padding:16px;
+                background:var(--c-surface-2);
+                border:1px solid var(--c-border-accent);
+                border-radius:var(--r-md);">
+      <div style="font-size:0.68rem;font-weight:700;letter-spacing:.14em;
+                  text-transform:uppercase;color:var(--c-accent);
+                  margin-bottom:10px;">
+        <i class="ti ti-user"></i> Currently Borrowed By
+      </div>
+      <div style="display:flex;justify-content:space-between;
+                  align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <span class="member-avatar">
+            {{ borrow_record.borrower_name[0].upper() }}
+          </span>
+          <span style="font-size:0.875rem;color:var(--c-text-1);
+                       font-weight:600;">
+            {{ borrow_record.borrower_name }}
+          </span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem;color:var(--c-text-3);">
+            Due:
+            <span style="color:{% if borrow_record.fine > 0 %}var(--c-ruby){% else %}var(--c-amber){% endif %};">
+              {% if borrow_record.due_date %}
+                {% if borrow_record.due_date is string %}
+                  {{ borrow_record.due_date }}
+                {% else %}
+                  {{ borrow_record.due_date.strftime('%d %b %Y') }}
+                {% endif %}
+              {% endif %}
+            </span>
+          </div>
+          {% if borrow_record.fine > 0 %}
+          <div style="font-size:0.75rem;color:var(--c-ruby);margin-top:3px;">
+            Fine: ₹{{ borrow_record.fine }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Action buttons -->
+    <div style="display:flex;gap:10px;margin-top:28px;
+                padding-top:24px;border-top:1px solid var(--c-border);
+                flex-wrap:wrap;">
+
+      {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('update', id=book.id) }}"
+         class="btn btn-ghost">
+        <i class="ti ti-pencil"></i> Edit Book
+      </a>
+      {% endif %}
+
+      {% if can_borrow %}
+      <a href="{{ url_for('borrow', id=book.id) }}"
+         class="btn btn-success">
+        <i class="ti ti-arrow-down"></i> Borrow
+      </a>
+      {% endif %}
+
+      {% if can_return %}
+      <a href="{{ url_for('return_book', id=book.id) }}"
+         class="btn btn-ghost">
+        <i class="ti ti-arrow-up"></i> Return
+      </a>
+      {% if brow and brow.renewals < max_renewals %}
+      <form method="POST" action="{{ url_for('renew', id=book.id) }}"
+            style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-ghost">
+          <i class="ti ti-refresh"></i> Renew
+        </button>
+      </form>
+      {% endif %}
+      {% endif %}
+
+      {% if session.get('role') == 'public' %}
+      <button type="button"
+              class="btn btn-ghost wishlist-detail-btn
+                     {% if in_wishlist %}wishlisted{% endif %}"
+              data-id="{{ book.id }}"
+              data-in="{{ 'true' if in_wishlist else 'false' }}"
+              data-book="{{ book.book_name | e }}"
+              style="margin-left:auto;">
+        <svg class="heart-icon"
+             xmlns="http://www.w3.org/2000/svg"
+             width="16" height="16" viewBox="0 0 24 24"
+             stroke="{% if in_wishlist %}var(--c-ruby){% else %}currentColor{% endif %}"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+             fill="{% if in_wishlist %}var(--c-ruby){% else %}none{% endif %}">
+          <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+          <path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428
+                   a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>
+        </svg>
+        {% if in_wishlist %}Remove from Wishlist{% else %}Add to Wishlist{% endif %}
+      </button>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var btn = document.querySelector('.wishlist-detail-btn');
+  if (!btn) return;
+
+  btn.addEventListener('click', async function () {
+    var id       = this.dataset.id;
+    var bookName = this.dataset.book || 'Book';
+    var inList   = this.dataset.in === 'true';
+    var url      = inList ? '/wishlist/remove/' + id : '/wishlist/add/' + id;
+    var willBe   = !inList;
+    var svg      = this.querySelector('svg');
+
+    // Optimistic flip
+    setWishlistState(this, svg, willBe);
+
+    try {
+      var res  = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken':      getCsrf(),
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept':           'application/json'
+        }
+      });
+      var data = await res.json();
+      if (data.ok) {
+        showToast(
+          data.action === 'added'
+            ? '<b>' + bookName + '</b> added to wishlist.'
+            : '<b>' + bookName + '</b> removed from wishlist.',
+          data.action === 'added' ? 'success' : 'info'
+        );
+      } else {
+        setWishlistState(this, svg, inList);
+        showToast(data.msg || 'Something went wrong.', 'danger');
+      }
+    } catch (err) {
+      setWishlistState(this, svg, inList);
+      showToast('Network error. Please try again.', 'danger');
+    }
+  });
+
+  function setWishlistState(btn, svg, isIn) {
+    btn.dataset.in = isIn ? 'true' : 'false';
+    if (isIn) {
+      btn.classList.add('wishlisted');
+      svg.setAttribute('fill',   'var(--c-ruby)');
+      svg.setAttribute('stroke', 'var(--c-ruby)');
+      btn.childNodes[btn.childNodes.length - 1].textContent = ' Remove from Wishlist';
+    } else {
+      btn.classList.remove('wishlisted');
+      svg.setAttribute('fill',   'none');
+      svg.setAttribute('stroke', 'currentColor');
+      btn.childNodes[btn.childNodes.length - 1].textContent = ' Add to Wishlist';
+    }
+  }
+})();
+</script>
+{% endblock %}

@@ -31,14 +31,22 @@ except ImportError:
     REPORTLAB_OK = False
 
 # ── Constants ──────────────────────────────────────────────────
-BORROW_DAYS   = 14     # days before a book is due
-MAX_RENEWALS  = 1      # max times a borrow can be renewed
-FINE_RATE     = 2      # rupees per overdue day
-REMEMBER_DAYS = 30     # session lifetime when "remember me" is on
+BORROW_DAYS   = 14
+MAX_RENEWALS  = 1
+FINE_RATE     = 2
+REMEMBER_DAYS = 30
 
 # ── App ────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY')
+
+# FIX: strong random secret key from env — never hardcoded
+_raw_key = os.environ.get('SECRET_KEY', '')
+if not _raw_key or len(_raw_key) < 32:
+    raise RuntimeError(
+        "SECRET_KEY env var is missing or too short. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.secret_key = _raw_key
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['WTF_CSRF_TIME_LIMIT']        = None
 
@@ -78,7 +86,7 @@ def get_db():
 def query(sql, params=(), fetchone=False, commit=False):
     """
     Run one SQL statement.
-    buffered=True prevents 'Unread result found' on cursor.close().
+    Returns rowcount when commit=True so callers can detect zero-row updates.
     """
     conn = get_db()
     try:
@@ -87,6 +95,7 @@ def query(sql, params=(), fetchone=False, commit=False):
         result = None
         if commit:
             conn.commit()
+            result = cur.rowcount      # FIX: return rowcount for atomic checks
         elif fetchone:
             result = cur.fetchone()
         else:
@@ -99,11 +108,18 @@ def query(sql, params=(), fetchone=False, commit=False):
     finally:
         conn.close()
 
-def query_many(queries):
+# FIX: renamed to read_many and guarded against write statements
+def read_many(queries):
     """
-    Run multiple read-only statements in one connection.
-    Do NOT pass write statements here.
+    Run multiple SELECT statements in one connection.
+    Raises ValueError if any query is not a SELECT.
     """
+    for q in queries:
+        sql_upper = q['sql'].lstrip().upper()
+        if not sql_upper.startswith('SELECT'):
+            raise ValueError(
+                f"read_many() only accepts SELECT statements. Got: {q['sql'][:40]}"
+            )
     conn = get_db()
     try:
         cur     = conn.cursor(dictionary=True, buffered=True)
@@ -118,6 +134,9 @@ def query_many(queries):
     finally:
         conn.close()
 
+# Keep old name as alias so nothing else breaks
+query_many = read_many
+
 # ── Helpers ────────────────────────────────────────────────────
 _DUMMY_HASH = generate_password_hash('__dummy_lendwise__')
 
@@ -130,7 +149,6 @@ def log_activity(username, action, detail):
     )
 
 def send_email(to, subject, body_html):
-    """Returns (True, None) on success or (False, error_str) on failure."""
     try:
         mail.send(Message(subject, recipients=[to], html=body_html))
         return True, None
@@ -160,7 +178,6 @@ def validate_email(email):
     return bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email))
 
 def serialise_row(row):
-    """Convert a MySQL dict row to JSON-safe types."""
     out = {}
     for k, v in row.items():
         if isinstance(v, datetime):
@@ -171,8 +188,12 @@ def serialise_row(row):
             out[k] = v
     return out
 
-def calc_fine(due_date_val):
-    """Return overdue fine in rupees; 0 if not overdue."""
+def calc_fine(due_date_val, return_date_val=None):
+    """
+    FIX: accepts an optional return_date so history page shows the fine
+    that was owed at the time of return, not today's ever-growing amount.
+    Falls back to date.today() for currently active loans.
+    """
     if not due_date_val:
         return 0
     if isinstance(due_date_val, str):
@@ -182,15 +203,21 @@ def calc_fine(due_date_val):
             return 0
     if isinstance(due_date_val, datetime):
         due_date_val = due_date_val.date()
-    return max(0, (date.today() - due_date_val).days * FINE_RATE)
+
+    if return_date_val is not None:
+        if isinstance(return_date_val, datetime):
+            return_date_val = return_date_val.date()
+        elif isinstance(return_date_val, str):
+            try:
+                return_date_val = datetime.strptime(
+                    return_date_val, '%Y-%m-%d').date()
+            except ValueError:
+                return_date_val = None
+
+    effective_date = return_date_val if return_date_val else date.today()
+    return max(0, (effective_date - due_date_val).days * FINE_RATE)
 
 def book_cover_url(book):
-    """
-    Returns the best cover URL for a book dict, or None.
-    Priority: explicit cover_url column → Open Library ISBN lookup.
-    For books without an ISBN, edit the book and paste a cover URL,
-    e.g. https://covers.openlibrary.org/b/olid/OL7353617W-M.jpg
-    """
     if book.get('cover_url'):
         return book['cover_url']
     isbn = (book.get('isbn') or '').replace('-', '').replace(' ', '')
@@ -199,7 +226,6 @@ def book_cover_url(book):
     return None
 
 def is_ajax():
-    """True when the request came from fetch/XHR, not a browser nav."""
     return (
         request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         or 'application/json' in request.headers.get('Accept', '')
@@ -207,9 +233,19 @@ def is_ajax():
     )
 
 def _categories():
-    """Return distinct category strings sorted alphabetically."""
     rows = query("SELECT DISTINCT category FROM books ORDER BY category")
     return [r['category'] for r in rows if r['category']]
+
+# FIX: proper email masking — shows only first char + *** before @
+def mask_email(email):
+    if not email or '@' not in email:
+        return email or ''
+    local, domain = email.split('@', 1)
+    masked_local = local[0] + '***' if len(local) > 1 else '***'
+    return f"{masked_local}@{domain}"
+
+# Register as a Jinja filter
+app.jinja_env.filters['mask_email'] = mask_email
 
 # ── Session timeout ────────────────────────────────────────────
 @app.before_request
@@ -487,6 +523,7 @@ def home():
 
     search        = request.args.get('search', '').strip()
     filter_status = request.args.get('status', '')
+    filter_cat    = request.args.get('category', '').strip()
     page          = max(1, int(request.args.get('page', 1)))
 
     sql       = "SELECT * FROM books WHERE 1=1"
@@ -505,6 +542,11 @@ def home():
         sql       += " AND status=%s"
         count_sql += " AND status=%s"
         params.append(filter_status)
+
+    if filter_cat:
+        sql       += " AND category=%s"
+        count_sql += " AND category=%s"
+        params.append(filter_cat)
 
     total_books = query(count_sql, params, fetchone=True)['c']
     total_pages = max(1, (total_books + PER_PAGE - 1) // PER_PAGE)
@@ -545,7 +587,7 @@ def home():
 
     stats = None
     if session.get('role') == 'admin':
-        r = query_many([
+        r = read_many([
             {'sql': "SELECT COUNT(*) AS c FROM books",            'fetchone': True},
             {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Available'",     'fetchone': True},
             {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Not Available'", 'fetchone': True},
@@ -556,13 +598,75 @@ def home():
 
     return render_template('pages/home.html',
         books=books, stats=stats, search=search,
-        filter_status=filter_status,
+        filter_status=filter_status, filter_cat=filter_cat,
         borrower_map=borrower_map, borrow_row_map=borrow_row_map,
         wishlist_ids=wishlist_ids,
         current_user=session['username'],
         page=page, total_pages=total_pages, total_books=total_books,
         categories=_categories(),
         borrow_days=BORROW_DAYS, max_renewals=MAX_RENEWALS,
+    )
+
+
+# ── Book detail page ───────────────────────────────────────────
+@app.route('/book/<int:id>')
+def book_detail(id):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
+    if not book:
+        flash("Book not found.", "danger")
+        return redirect(url_for('home'))
+    book['_cover'] = book_cover_url(book)
+
+    borrow_record = None
+    if book['status'] == 'Not Available':
+        borrow_record = query(
+            """SELECT bb.*, u.email FROM borrowed_books bb
+               LEFT JOIN users u ON bb.borrower_name = u.username
+               WHERE bb.book_id=%s ORDER BY bb.borrow_date DESC LIMIT 1""",
+            (id,), fetchone=True,
+        )
+        if borrow_record:
+            borrow_record['fine'] = calc_fine(borrow_record['due_date'])
+
+    borrow_count = query(
+        "SELECT COUNT(*) AS c FROM borrowed_books WHERE book_id=%s",
+        (id,), fetchone=True,
+    )['c']
+
+    in_wishlist = False
+    if session.get('role') == 'public':
+        in_wishlist = bool(query(
+            "SELECT id FROM wishlist WHERE username=%s AND book_id=%s",
+            (session['username'], id), fetchone=True,
+        ))
+
+    can_borrow = (
+        session.get('role') == 'public'
+        and book['status'] == 'Available'
+    )
+    can_return = (
+        session.get('role') == 'public'
+        and book['status'] == 'Not Available'
+        and borrow_record
+        and borrow_record.get('borrower_name') == session['username']
+    )
+
+    brow = None
+    if can_return and borrow_record:
+        brow = borrow_record
+
+    return render_template('pages/book_detail.html',
+        book=book,
+        borrow_record=borrow_record if session.get('role') == 'admin' else None,
+        borrow_count=borrow_count,
+        in_wishlist=in_wishlist,
+        can_borrow=can_borrow,
+        can_return=can_return,
+        brow=brow,
+        max_renewals=MAX_RENEWALS,
+        borrow_days=BORROW_DAYS,
     )
 
 
@@ -586,6 +690,17 @@ def suggest():
         (like, like, like),
     )
     return jsonify(rows)
+
+# FIX: wishlist count API for dashboard live update
+@app.route('/api/wishlist-count')
+def api_wishlist_count():
+    if 'username' not in session or session.get('role') != 'public':
+        return jsonify({'error': 'Unauthorized'}), 401
+    row = query(
+        "SELECT COUNT(*) AS c FROM wishlist WHERE username=%s",
+        (session['username'],), fetchone=True,
+    )
+    return jsonify({'count': row['c']})
 
 
 # ── REST API ───────────────────────────────────────────────────
@@ -616,7 +731,7 @@ def api_book(id):
 def api_stats():
     if 'username' not in session or session.get('role') != 'admin':
         return jsonify({'error': 'Unauthorized'}), 401
-    r = query_many([
+    r = read_many([
         {'sql': "SELECT COUNT(*) AS c FROM books",            'fetchone': True},
         {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Available'",     'fetchone': True},
         {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Not Available'", 'fetchone': True},
@@ -743,9 +858,15 @@ def delete(id):
 
 # ── Borrow ─────────────────────────────────────────────────────
 @app.route('/borrow/<int:id>', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")   # FIX: rate limit borrow
 def borrow(id):
     if 'username' not in session:
         return redirect(url_for('login'))
+    # FIX: only public users can borrow
+    if session.get('role') != 'public':
+        flash("Admins do not borrow books.", "warning")
+        return redirect(url_for('home'))
+
     book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
     if not book:
         flash("Book not found.", "danger")
@@ -753,16 +874,26 @@ def borrow(id):
     if book['status'] == 'Not Available':
         flash("This book is currently borrowed.", "warning")
         return redirect(url_for('home'))
+
     if request.method == 'POST':
         due_date = (datetime.now() +
                     timedelta(days=BORROW_DAYS)).strftime('%Y-%m-%d')
+
+        # FIX: atomic check — only update if still Available
+        rows_updated = query(
+            "UPDATE books SET status='Not Available' "
+            "WHERE id=%s AND status='Available'",
+            (id,), commit=True,
+        )
+        if not rows_updated:
+            flash("Sorry, this book was just borrowed by someone else.", "warning")
+            return redirect(url_for('home'))
+
         query(
             "INSERT INTO borrowed_books "
             "(book_id, borrower_name, due_date) VALUES (%s,%s,%s)",
             (id, session['username'], due_date), commit=True,
         )
-        query("UPDATE books SET status='Not Available' WHERE id=%s",
-              (id,), commit=True)
         query("DELETE FROM wishlist WHERE username=%s AND book_id=%s",
               (session['username'], id), commit=True)
         log_activity(session['username'], 'BORROW',
@@ -787,9 +918,15 @@ def borrow(id):
 
 # ── Return ─────────────────────────────────────────────────────
 @app.route('/return/<int:id>', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")   # FIX: rate limit return
 def return_book(id):
     if 'username' not in session:
         return redirect(url_for('login'))
+    # FIX: only public users can return
+    if session.get('role') != 'public':
+        flash("Admins do not return books.", "warning")
+        return redirect(url_for('home'))
+
     book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
     if not book:
         flash("Book not found.", "danger")
@@ -797,14 +934,18 @@ def return_book(id):
     if book['status'] != 'Not Available':
         flash("This book is not currently on loan.", "warning")
         return redirect(url_for('home'))
+
+    # FIX: authorisation — must be the actual borrower of the active loan
     active = query(
-        "SELECT * FROM borrowed_books "
-        "WHERE book_id=%s ORDER BY borrow_date DESC LIMIT 1",
-        (id,), fetchone=True,
+        """SELECT * FROM borrowed_books
+           WHERE book_id=%s AND borrower_name=%s
+           ORDER BY borrow_date DESC LIMIT 1""",
+        (id, session['username']), fetchone=True,
     )
-    if active and active['borrower_name'] != session['username']:
+    if not active:
         flash("You did not borrow this book.", "danger")
         return redirect(url_for('home'))
+
     if request.method == 'POST':
         fine = calc_fine(active['due_date']) if active else 0
         query("INSERT INTO returned_books (book_id, returner_name) "
@@ -828,13 +969,21 @@ def return_book(id):
 
 # ── Renew ──────────────────────────────────────────────────────
 @app.route('/renew/<int:id>', methods=['POST'])
+@limiter.limit("10 per minute")   # FIX: rate limit renew
 def renew(id):
     if 'username' not in session:
         return redirect(url_for('login'))
+    # FIX: only public users can renew
+    if session.get('role') != 'public':
+        flash("Admins do not renew books.", "warning")
+        return redirect(url_for('home'))
+
     book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
     if not book or book['status'] != 'Not Available':
         flash("Book not available for renewal.", "warning")
         return redirect(url_for('home'))
+
+    # FIX: authorisation — must be the borrower
     rec = query(
         "SELECT * FROM borrowed_books "
         "WHERE book_id=%s AND borrower_name=%s "
@@ -947,7 +1096,7 @@ def my_dashboard():
             due.strftime('%d %b %Y') if hasattr(due, 'strftime') else str(due)
         )
 
-    r = query_many([
+    r = read_many([
         {'sql': "SELECT COUNT(*) AS c FROM wishlist WHERE username=%s",
          'params': (username,), 'fetchone': True},
         {'sql': "SELECT COUNT(*) AS c FROM borrowed_books WHERE borrower_name=%s",
@@ -1119,7 +1268,7 @@ def dashboard():
     )
     total_fines = sum(calc_fine(r['due_date']) for r in overdue_rows)
 
-    r = query_many([
+    r = read_many([
         {'sql': "SELECT COUNT(*) AS c FROM books",            'fetchone': True},
         {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Available'",     'fetchone': True},
         {'sql': "SELECT COUNT(*) AS c FROM books WHERE status='Not Available'", 'fetchone': True},
@@ -1154,19 +1303,29 @@ def members():
     if 'username' not in session or session.get('role') != 'admin':
         flash("Access denied.", "danger")
         return redirect(url_for('home'))
-    page  = max(1, int(request.args.get('page', 1)))
-    PER   = 15
-    total = query("SELECT COUNT(*) AS c FROM users", fetchone=True)['c']
+    page   = max(1, int(request.args.get('page', 1)))
+    search = request.args.get('search', '').strip()   # FIX: member search
+    PER    = 15
+
+    sql       = "SELECT id, username, role, last_login, email FROM users WHERE 1=1"
+    count_sql = "SELECT COUNT(*) AS c FROM users WHERE 1=1"
+    params    = []
+
+    if search:
+        sql       += " AND username LIKE %s"
+        count_sql += " AND username LIKE %s"
+        params.append(f'%{search}%')
+
+    total = query(count_sql, params, fetchone=True)['c']
     users = query(
-        "SELECT id, username, role, last_login, email "
-        "FROM users ORDER BY id DESC LIMIT %s OFFSET %s",
-        (PER, (page - 1) * PER),
+        sql + " ORDER BY id DESC LIMIT %s OFFSET %s",
+        params + [PER, (page - 1) * PER],
     )
     for u in users:
         if u.get('last_login'):
             u['last_login'] = u['last_login'].strftime("%d %b %Y")
     return render_template('pages/members.html',
-        users=users, page=page,
+        users=users, page=page, search=search,
         total_pages=max(1, (total + PER - 1) // PER),
     )
 
@@ -1313,7 +1472,6 @@ def export_history(fmt):
 
 
 def _build_history_pdf(username, rows):
-    """Build a borrow-history PDF and return a BytesIO buffer."""
     buf  = io.BytesIO()
     doc  = SimpleDocTemplate(buf, pagesize=A4,
                topMargin=40, bottomMargin=40,
@@ -1402,12 +1560,15 @@ def export_member_history_pdf(username):
 
 
 # ── Scheduler ──────────────────────────────────────────────────
+# FIX: only start scheduler once — avoids duplicate jobs under Flask reloader
 if SCHEDULER_OK:
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(check_overdue, 'interval', hours=24,
-                      id='overdue_check', replace_existing=True)
-    scheduler.start()
-    atexit.register(lambda: scheduler.shutdown(wait=False))
+    _run_main = os.environ.get('WERKZEUG_RUN_MAIN')
+    if not app.debug or _run_main == 'true':
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(check_overdue, 'interval', hours=24,
+                          id='overdue_check', replace_existing=True)
+        scheduler.start()
+        atexit.register(lambda: scheduler.shutdown(wait=False))
 
 if __name__ == '__main__':
     app.run(debug=True)
