@@ -52,16 +52,18 @@ app.config['WTF_CSRF_TIME_LIMIT']        = None
 
 # ── Mail ───────────────────────────────────────────────────────
 app.config.update(
-    MAIL_SERVER            = 'smtp.gmail.com',
-    MAIL_PORT              = 587,
-    MAIL_USE_TLS           = True,
-    MAIL_USE_SSL           = False,
-    MAIL_USERNAME          = os.environ.get('MAIL_USERNAME'),
-    MAIL_PASSWORD          = os.environ.get('MAIL_PASSWORD'),
-    MAIL_DEFAULT_SENDER    = ('LendWise Library',
-                              os.environ.get('MAIL_USERNAME')),
-    MAIL_MAX_EMAILS        = None,
-    MAIL_ASCII_ATTACHMENTS = False,
+    MAIL_SERVER='smtp.gmail.com',
+    MAIL_PORT=587,
+    MAIL_USE_TLS=True,
+    MAIL_USE_SSL=False,
+    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
+    MAIL_DEFAULT_SENDER=('LendWise Library',
+                         os.environ.get('MAIL_USERNAME')),
+    MAIL_MAX_EMAILS=None,
+    MAIL_ASCII_ATTACHMENTS=False,
+
+    MAIL_TIMEOUT=10
 )
 
 mail    = Mail(app)
@@ -150,10 +152,23 @@ def log_activity(username, action, detail):
 
 def send_email(to, subject, body_html):
     try:
-        mail.send(Message(subject, recipients=[to], html=body_html))
+        print(f"Sending mail to {to}")
+
+        msg = Message(
+            subject,
+            recipients=[to],
+            html=body_html
+        )
+
+        mail.send(msg)
+
+        print("Mail sent successfully")
         return True, None
+
     except Exception as e:
-        print(f"[Mail error] {e}")
+        import traceback
+        traceback.print_exc()
+        print("MAIL ERROR:", str(e))
         return False, str(e)
 
 def validate_isbn(isbn):
