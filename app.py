@@ -873,62 +873,96 @@ def delete(id):
 
 # ── Borrow ─────────────────────────────────────────────────────
 @app.route('/borrow/<int:id>', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")   # FIX: rate limit borrow
+@limiter.limit("10 per minute")
 def borrow(id):
     if 'username' not in session:
         return redirect(url_for('login'))
-    # FIX: only public users can borrow
+
     if session.get('role') != 'public':
         flash("Admins do not borrow books.", "warning")
         return redirect(url_for('home'))
 
     book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
+
     if not book:
         flash("Book not found.", "danger")
         return redirect(url_for('home'))
+
     if book['status'] == 'Not Available':
         flash("This book is currently borrowed.", "warning")
         return redirect(url_for('home'))
 
     if request.method == 'POST':
-        due_date = (datetime.now() +
-                    timedelta(days=BORROW_DAYS)).strftime('%Y-%m-%d')
+        due_date = (
+            datetime.now() + timedelta(days=BORROW_DAYS)
+        ).strftime('%Y-%m-%d')
 
-        # FIX: atomic check — only update if still Available
         rows_updated = query(
-            "UPDATE books SET status='Not Available' "
+            "UPDATE books "
+            "SET status='Not Available' "
             "WHERE id=%s AND status='Available'",
-            (id,), commit=True,
+            (id,),
+            commit=True
         )
+
         if not rows_updated:
-            flash("Sorry, this book was just borrowed by someone else.", "warning")
+            flash(
+                "Sorry, this book was just borrowed by someone else.",
+                "warning"
+            )
             return redirect(url_for('home'))
 
         query(
-            "INSERT INTO borrowed_books "
-            "(book_id, borrower_name, due_date) VALUES (%s,%s,%s)",
-            (id, session['username'], due_date), commit=True,
+            """
+            INSERT INTO borrowed_books
+            (book_id, borrower_name, due_date)
+            VALUES (%s, %s, %s)
+            """,
+            (id, session['username'], due_date),
+            commit=True
         )
-        query("DELETE FROM wishlist WHERE username=%s AND book_id=%s",
-              (session['username'], id), commit=True)
-        log_activity(session['username'], 'BORROW',
-                     f"Borrowed '{book['book_name']}' — due {due_date}")
-        user = query("SELECT email FROM users WHERE username=%s",
-                     (session['username'],), fetchone=True)
-        if user and user.get('email'):
-            send_email(
-                user['email'],
-                f"You borrowed: {book['book_name']}",
-                f"""<p>Hi <b>{session['username']}</b>,</p>
-                    <p>You borrowed <b>{book['book_name']}</b>
-                    by {book['author_name']}.</p>
-                    <p>Please return it by <b>{due_date}</b>.</p>"""
-            )
-        flash(f'"{book["book_name"]}" borrowed! '
-              f'Return by {due_date}.', "success")
+
+        query(
+            "DELETE FROM wishlist WHERE username=%s AND book_id=%s",
+            (session['username'], id),
+            commit=True
+        )
+
+        log_activity(
+            session['username'],
+            'BORROW',
+            f"Borrowed '{book['book_name']}' — due {due_date}"
+        )
+
+        # EMAIL TEMPORARILY DISABLED FOR DEBUGGING
+        # user = query(
+        #     "SELECT email FROM users WHERE username=%s",
+        #     (session['username'],),
+        #     fetchone=True
+        # )
+        #
+        # if user and user.get('email'):
+        #     send_email(
+        #         user['email'],
+        #         f"You borrowed: {book['book_name']}",
+        #         f'''<p>Hi <b>{session["username"]}</b>,</p>
+        #             <p>You borrowed <b>{book["book_name"]}</b>
+        #             by {book["author_name"]}.</p>
+        #             <p>Please return it by <b>{due_date}</b>.</p>'''
+        #     )
+
+        flash(
+            f'"{book["book_name"]}" borrowed! Return by {due_date}.',
+            "success"
+        )
+
         return redirect(url_for('home'))
-    return render_template('books/borrow.html',
-                           book=book, borrow_days=BORROW_DAYS)
+
+    return render_template(
+        'books/borrow.html',
+        book=book,
+        borrow_days=BORROW_DAYS
+    )
 
 
 # ── Return ─────────────────────────────────────────────────────
