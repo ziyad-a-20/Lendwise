@@ -39,7 +39,6 @@ REMEMBER_DAYS = 30
 # ── App ────────────────────────────────────────────────────────
 app = Flask(__name__)
 
-# FIX: strong random secret key from env — never hardcoded
 _raw_key = os.environ.get('SECRET_KEY', '')
 if not _raw_key or len(_raw_key) < 32:
     raise RuntimeError(
@@ -52,18 +51,17 @@ app.config['WTF_CSRF_TIME_LIMIT']        = None
 
 # ── Mail ───────────────────────────────────────────────────────
 app.config.update(
-    MAIL_SERVER='smtp.gmail.com',
-    MAIL_PORT=587,
-    MAIL_USE_TLS=True,
-    MAIL_USE_SSL=False,
-    MAIL_USERNAME=os.environ.get('MAIL_USERNAME'),
-    MAIL_PASSWORD=os.environ.get('MAIL_PASSWORD'),
-    MAIL_DEFAULT_SENDER=('LendWise Library',
-                         os.environ.get('MAIL_USERNAME')),
-    MAIL_MAX_EMAILS=None,
-    MAIL_ASCII_ATTACHMENTS=False,
-
-    MAIL_TIMEOUT=10
+    MAIL_SERVER            = 'smtp.gmail.com',
+    MAIL_PORT              = 587,
+    MAIL_USE_TLS           = True,
+    MAIL_USE_SSL           = False,
+    MAIL_USERNAME          = os.environ.get('MAIL_USERNAME'),
+    MAIL_PASSWORD          = os.environ.get('MAIL_PASSWORD'),
+    MAIL_DEFAULT_SENDER    = ('LendWise Library',
+                              os.environ.get('MAIL_USERNAME')),
+    MAIL_MAX_EMAILS        = None,
+    MAIL_ASCII_ATTACHMENTS = False,
+    MAIL_TIMEOUT           = 10,
 )
 
 mail    = Mail(app)
@@ -86,10 +84,6 @@ def get_db():
     return pool.get_connection()
 
 def query(sql, params=(), fetchone=False, commit=False):
-    """
-    Run one SQL statement.
-    Returns rowcount when commit=True so callers can detect zero-row updates.
-    """
     conn = get_db()
     try:
         cur = conn.cursor(dictionary=True, buffered=True)
@@ -97,7 +91,7 @@ def query(sql, params=(), fetchone=False, commit=False):
         result = None
         if commit:
             conn.commit()
-            result = cur.rowcount      # FIX: return rowcount for atomic checks
+            result = cur.rowcount
         elif fetchone:
             result = cur.fetchone()
         else:
@@ -110,12 +104,7 @@ def query(sql, params=(), fetchone=False, commit=False):
     finally:
         conn.close()
 
-# FIX: renamed to read_many and guarded against write statements
 def read_many(queries):
-    """
-    Run multiple SELECT statements in one connection.
-    Raises ValueError if any query is not a SELECT.
-    """
     for q in queries:
         sql_upper = q['sql'].lstrip().upper()
         if not sql_upper.startswith('SELECT'):
@@ -136,7 +125,6 @@ def read_many(queries):
     finally:
         conn.close()
 
-# Keep old name as alias so nothing else breaks
 query_many = read_many
 
 # ── Helpers ────────────────────────────────────────────────────
@@ -152,23 +140,10 @@ def log_activity(username, action, detail):
 
 def send_email(to, subject, body_html):
     try:
-        print(f"Sending mail to {to}")
-
-        msg = Message(
-            subject,
-            recipients=[to],
-            html=body_html
-        )
-
-        mail.send(msg)
-
-        print("Mail sent successfully")
+        mail.send(Message(subject, recipients=[to], html=body_html))
         return True, None
-
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print("MAIL ERROR:", str(e))
+        print(f"[Mail error] {e}")
         return False, str(e)
 
 def validate_isbn(isbn):
@@ -204,11 +179,6 @@ def serialise_row(row):
     return out
 
 def calc_fine(due_date_val, return_date_val=None):
-    """
-    FIX: accepts an optional return_date so history page shows the fine
-    that was owed at the time of return, not today's ever-growing amount.
-    Falls back to date.today() for currently active loans.
-    """
     if not due_date_val:
         return 0
     if isinstance(due_date_val, str):
@@ -218,7 +188,6 @@ def calc_fine(due_date_val, return_date_val=None):
             return 0
     if isinstance(due_date_val, datetime):
         due_date_val = due_date_val.date()
-
     if return_date_val is not None:
         if isinstance(return_date_val, datetime):
             return_date_val = return_date_val.date()
@@ -228,7 +197,6 @@ def calc_fine(due_date_val, return_date_val=None):
                     return_date_val, '%Y-%m-%d').date()
             except ValueError:
                 return_date_val = None
-
     effective_date = return_date_val if return_date_val else date.today()
     return max(0, (effective_date - due_date_val).days * FINE_RATE)
 
@@ -251,7 +219,6 @@ def _categories():
     rows = query("SELECT DISTINCT category FROM books ORDER BY category")
     return [r['category'] for r in rows if r['category']]
 
-# FIX: proper email masking — shows only first char + *** before @
 def mask_email(email):
     if not email or '@' not in email:
         return email or ''
@@ -259,7 +226,6 @@ def mask_email(email):
     masked_local = local[0] + '***' if len(local) > 1 else '***'
     return f"{masked_local}@{domain}"
 
-# Register as a Jinja filter
 app.jinja_env.filters['mask_email'] = mask_email
 
 # ── Session timeout ────────────────────────────────────────────
@@ -706,7 +672,6 @@ def suggest():
     )
     return jsonify(rows)
 
-# FIX: wishlist count API for dashboard live update
 @app.route('/api/wishlist-count')
 def api_wishlist_count():
     if 'username' not in session or session.get('role') != 'public':
@@ -877,101 +842,67 @@ def delete(id):
 def borrow(id):
     if 'username' not in session:
         return redirect(url_for('login'))
-
     if session.get('role') != 'public':
         flash("Admins do not borrow books.", "warning")
         return redirect(url_for('home'))
 
     book = query("SELECT * FROM books WHERE id=%s", (id,), fetchone=True)
-
     if not book:
         flash("Book not found.", "danger")
         return redirect(url_for('home'))
-
     if book['status'] == 'Not Available':
         flash("This book is currently borrowed.", "warning")
         return redirect(url_for('home'))
 
     if request.method == 'POST':
-        due_date = (
-            datetime.now() + timedelta(days=BORROW_DAYS)
-        ).strftime('%Y-%m-%d')
+        due_date = (datetime.now() +
+                    timedelta(days=BORROW_DAYS)).strftime('%Y-%m-%d')
 
         rows_updated = query(
-            "UPDATE books "
-            "SET status='Not Available' "
+            "UPDATE books SET status='Not Available' "
             "WHERE id=%s AND status='Available'",
-            (id,),
-            commit=True
+            (id,), commit=True,
         )
-
         if not rows_updated:
-            flash(
-                "Sorry, this book was just borrowed by someone else.",
-                "warning"
-            )
+            flash("Sorry, this book was just borrowed by someone else.",
+                  "warning")
             return redirect(url_for('home'))
 
         query(
-            """
-            INSERT INTO borrowed_books
-            (book_id, borrower_name, due_date)
-            VALUES (%s, %s, %s)
-            """,
-            (id, session['username'], due_date),
-            commit=True
+            "INSERT INTO borrowed_books "
+            "(book_id, borrower_name, due_date) VALUES (%s,%s,%s)",
+            (id, session['username'], due_date), commit=True,
         )
+        query("DELETE FROM wishlist WHERE username=%s AND book_id=%s",
+              (session['username'], id), commit=True)
+        log_activity(session['username'], 'BORROW',
+                     f"Borrowed '{book['book_name']}' — due {due_date}")
 
-        query(
-            "DELETE FROM wishlist WHERE username=%s AND book_id=%s",
-            (session['username'], id),
-            commit=True
-        )
+        user = query("SELECT email FROM users WHERE username=%s",
+                     (session['username'],), fetchone=True)
+        if user and user.get('email'):
+            send_email(
+                user['email'],
+                f"You borrowed: {book['book_name']}",
+                f"""<p>Hi <b>{session['username']}</b>,</p>
+                    <p>You borrowed <b>{book['book_name']}</b>
+                    by {book['author_name']}.</p>
+                    <p>Please return it by <b>{due_date}</b>.</p>"""
+            )
 
-        log_activity(
-            session['username'],
-            'BORROW',
-            f"Borrowed '{book['book_name']}' — due {due_date}"
-        )
-
-        # EMAIL TEMPORARILY DISABLED FOR DEBUGGING
-        # user = query(
-        #     "SELECT email FROM users WHERE username=%s",
-        #     (session['username'],),
-        #     fetchone=True
-        # )
-        #
-        # if user and user.get('email'):
-        #     send_email(
-        #         user['email'],
-        #         f"You borrowed: {book['book_name']}",
-        #         f'''<p>Hi <b>{session["username"]}</b>,</p>
-        #             <p>You borrowed <b>{book["book_name"]}</b>
-        #             by {book["author_name"]}.</p>
-        #             <p>Please return it by <b>{due_date}</b>.</p>'''
-        #     )
-
-        flash(
-            f'"{book["book_name"]}" borrowed! Return by {due_date}.',
-            "success"
-        )
-
+        flash(f'"{book["book_name"]}" borrowed! '
+              f'Return by {due_date}.', "success")
         return redirect(url_for('home'))
-
-    return render_template(
-        'books/borrow.html',
-        book=book,
-        borrow_days=BORROW_DAYS
-    )
+    return render_template('books/borrow.html',
+                           book=book, borrow_days=BORROW_DAYS)
 
 
 # ── Return ─────────────────────────────────────────────────────
 @app.route('/return/<int:id>', methods=['GET', 'POST'])
-@limiter.limit("10 per minute")   # FIX: rate limit return
+@limiter.limit("10 per minute")
 def return_book(id):
     if 'username' not in session:
         return redirect(url_for('login'))
-    # FIX: only public users can return
     if session.get('role') != 'public':
         flash("Admins do not return books.", "warning")
         return redirect(url_for('home'))
@@ -984,7 +915,6 @@ def return_book(id):
         flash("This book is not currently on loan.", "warning")
         return redirect(url_for('home'))
 
-    # FIX: authorisation — must be the actual borrower of the active loan
     active = query(
         """SELECT * FROM borrowed_books
            WHERE book_id=%s AND borrower_name=%s
@@ -1018,11 +948,10 @@ def return_book(id):
 
 # ── Renew ──────────────────────────────────────────────────────
 @app.route('/renew/<int:id>', methods=['POST'])
-@limiter.limit("10 per minute")   # FIX: rate limit renew
+@limiter.limit("10 per minute")
 def renew(id):
     if 'username' not in session:
         return redirect(url_for('login'))
-    # FIX: only public users can renew
     if session.get('role') != 'public':
         flash("Admins do not renew books.", "warning")
         return redirect(url_for('home'))
@@ -1032,7 +961,6 @@ def renew(id):
         flash("Book not available for renewal.", "warning")
         return redirect(url_for('home'))
 
-    # FIX: authorisation — must be the borrower
     rec = query(
         "SELECT * FROM borrowed_books "
         "WHERE book_id=%s AND borrower_name=%s "
@@ -1353,7 +1281,7 @@ def members():
         flash("Access denied.", "danger")
         return redirect(url_for('home'))
     page   = max(1, int(request.args.get('page', 1)))
-    search = request.args.get('search', '').strip()   # FIX: member search
+    search = request.args.get('search', '').strip()
     PER    = 15
 
     sql       = "SELECT id, username, role, last_login, email FROM users WHERE 1=1"
@@ -1395,7 +1323,8 @@ def activity():
     count  = "SELECT COUNT(*) AS c FROM activity_log WHERE 1=1"
     params = []
     if action:
-        sql   += " AND action=%s";  count += " AND action=%s"
+        sql   += " AND action=%s"
+        count += " AND action=%s"
         params.append(action)
     if date_from:
         sql   += " AND DATE(created_at) >= %s"
@@ -1609,7 +1538,6 @@ def export_member_history_pdf(username):
 
 
 # ── Scheduler ──────────────────────────────────────────────────
-# FIX: only start scheduler once — avoids duplicate jobs under Flask reloader
 if SCHEDULER_OK:
     _run_main = os.environ.get('WERKZEUG_RUN_MAIN')
     if not app.debug or _run_main == 'true':

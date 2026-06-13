@@ -1,4 +1,10 @@
 (function () {
+  if (window.innerWidth < 768) {
+    var c = document.getElementById("page-canvas");
+    if (c) c.style.display = "none";
+    return;
+  }
+
   var canvas = document.getElementById("page-canvas");
   if (!canvas) return;
   canvas.style.cssText =

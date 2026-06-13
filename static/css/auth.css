@@ -848,3 +848,48 @@ input:-webkit-autofill:focus {
     width: auto;
   }
 }
+
+/* ── Mobile auth touch fix ───────────────────────────────────── */
+#auth-canvas,
+.orb-field,
+.orb,
+.grid-layer,
+.scanlines,
+.vignette,
+.accent-line {
+  pointer-events: none !important;
+  touch-action: none !important;
+  user-select: none !important;
+}
+
+.auth-layout {
+  /* Ensure auth form is always on top */
+  isolation: isolate;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 10;
+}
+
+/* Bigger tap targets on mobile auth */
+@media (max-width: 760px) {
+  .auth-input {
+    min-height: 48px;
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+  .auth-btn {
+    min-height: 52px;
+  }
+  .auth-footer a,
+  .auth-footer-dim {
+    display: inline-block;
+    padding: 8px 4px;
+    min-height: 44px;
+    line-height: 28px;
+  }
+  .pw-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

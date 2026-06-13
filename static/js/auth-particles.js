@@ -1,6 +1,6 @@
 (function () {
   // No mouse repulsion on mobile/touch devices
-  if (window.innerWidth < 760) return;
+  if (window.innerWidth < 768) return;
 
   const canvas = document.getElementById("auth-canvas");
   if (!canvas) return;

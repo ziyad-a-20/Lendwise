@@ -263,6 +263,7 @@ body::after {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 40px 80px;
+  isolation: isolate;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
@@ -532,7 +533,6 @@ body::after {
   font-weight: 600;
 }
 
-/* Stat colour modifiers */
 .stat-accent {
   --stat-color: var(--c-accent);
   --stat-bg: var(--c-accent-dim);
@@ -872,7 +872,6 @@ tbody tr:last-child td {
   margin: 0 auto;
 }
 
-/* Empty state colour variants */
 .empty-state-catalogue .empty-icon-wrap {
   background: rgba(200, 191, 168, 0.08);
   border-color: var(--c-border-accent);
@@ -924,18 +923,21 @@ tbody tr:last-child td {
 .ring {
   pointer-events: none !important;
   touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  z-index: 0 !important;
 }
 #page-canvas {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 0 !important;
   opacity: 0.35;
 }
 
 .page-rings {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 0 !important;
   overflow: hidden;
 }
 .ring {
@@ -1683,7 +1685,7 @@ tbody tr:last-child td {
   padding: 0 4px;
 }
 
-/* ── Book cover block (coloured initial) ─────────────────────── */
+/* ── Book cover block ────────────────────────────────────────── */
 .book-cover-block {
   width: 36px;
   height: 44px;
@@ -1768,6 +1770,8 @@ tbody tr:last-child td {
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
   z-index: 0;
+  pointer-events: none !important;
+  touch-action: none !important;
 }
 .cover-wrap img {
   position: relative;
@@ -1779,6 +1783,7 @@ tbody tr:last-child td {
   height: 44px;
   object-fit: cover;
   border-radius: 4px 6px 6px 4px;
+  pointer-events: none;
 }
 .cover-wrap img.loaded {
   opacity: 1;
@@ -1792,7 +1797,7 @@ tbody tr:last-child td {
   display: none;
 }
 
-/* ── Loan cards (member dashboard) ──────────────────────────── */
+/* ── Loan cards ──────────────────────────────────────────────── */
 .active-loans-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1821,7 +1826,6 @@ tbody tr:last-child td {
   background: rgba(240, 92, 110, 0.03);
 }
 
-/* ── Loan card cover — same pattern as catalogue cover-wrap ── */
 .loan-cover {
   flex-shrink: 0;
   position: relative;
@@ -2138,8 +2142,65 @@ input[type="date"].filter-select {
 }
 
 /* ================================================================
-   RESPONSIVE
+   RESPONSIVE + MOBILE TOUCH FIXES
    ================================================================ */
+
+/* ── Global mobile touch fix ─────────────────────────────────── */
+a,
+button,
+input,
+select,
+textarea,
+.btn,
+.nav-link,
+.drawer-link,
+.page-btn,
+.wishlist-btn,
+.filter-select,
+.search-input,
+.flash,
+.suggest-item {
+  -webkit-tap-highlight-color: rgba(200, 191, 168, 0.15);
+  touch-action: manipulation;
+}
+
+/* Minimum tap target sizes */
+.btn {
+  min-height: 44px;
+}
+.btn-sm {
+  min-height: 36px;
+}
+.row-actions .btn-sm {
+  min-height: 36px;
+  min-width: 36px;
+}
+
+/* Containers that should not block child taps */
+.stat-card,
+.table-shell,
+.form-card,
+.dash-card,
+.loan-card,
+.active-loans-grid {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
+
+/* Decorative layers must never intercept touch */
+body::before,
+body::after,
+.page-wash,
+.page-rules,
+.page-rings,
+.ring,
+#page-canvas,
+.cover-wrap::before,
+.loan-cover::before {
+  pointer-events: none !important;
+  touch-action: none !important;
+}
+
 @media (max-width: 960px) {
   .stats-grid,
   .stats-grid-4,
@@ -2168,6 +2229,7 @@ input[type="date"].filter-select {
     grid-template-columns: 1fr;
   }
 }
+
 @media (max-width: 640px) {
   .stats-grid,
   .stats-grid-4,
@@ -2205,12 +2267,83 @@ input[type="date"].filter-select {
   .btn-logout {
     display: none;
   }
-  .page-btn {
-    min-width: 32px;
-    height: 32px;
-    font-size: 0.78rem;
-  }
   .active-loans-grid {
     grid-template-columns: 1fr;
+  }
+
+  .page-btn {
+    min-width: 40px;
+    height: 40px;
+    font-size: 0.78rem;
+  }
+  .pagination {
+    gap: 4px;
+  }
+
+  .row-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .row-actions .btn-sm {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+  }
+
+  .filter-select {
+    width: 100%;
+    min-width: unset;
+  }
+  .search-wrap {
+    min-width: unset;
+    width: 100%;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .wishlist-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .loan-card {
+    padding: 14px 12px;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+  }
+  .navbar-right {
+    gap: 8px;
+  }
+}
+
+/* ── Very small screens (iPhone SE etc) ──────────────────────── */
+@media (max-width: 380px) {
+  .stats-grid,
+  .stats-grid-4,
+  .stats-grid-3 {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-card {
+    padding: 16px 14px 14px;
+  }
+  .stat-value {
+    font-size: 1.5rem;
+  }
+  .page {
+    padding: 0 12px 40px;
+  }
+  .navbar {
+    padding: 0 16px;
   }
 }
